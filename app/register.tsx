@@ -1,4 +1,3 @@
-import { Picker } from "@react-native-picker/picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -19,6 +18,8 @@ export default function Register() {
   const params = useLocalSearchParams();
   const { users, addUser, setCurrentUser } = useAppStore();
 
+  const [cityOpen, setCityOpen] = useState(false);
+  const [tipoOpen, setTipoOpen] = useState(false);
   const [role, setRole] = useState<"player" | "goalkeeper">(
     (params.type as any) || "player",
   );
@@ -85,7 +86,6 @@ export default function Register() {
     <ScrollView contentContainerStyle={styles.container}>
       <StatusBar style="light" />
 
-      {/* Logo */}
       <View style={styles.logoRow}>
         <View style={styles.logoIcon}>
           <Text style={styles.logoEmoji}>🧤</Text>
@@ -95,7 +95,6 @@ export default function Register() {
         </Text>
       </View>
 
-      {/* Selector de rol */}
       {step === 1 && (
         <View style={styles.roleRow}>
           {(["player", "goalkeeper"] as const).map((r) => (
@@ -117,7 +116,6 @@ export default function Register() {
         </View>
       )}
 
-      {/* Título y progreso */}
       <Text style={styles.title}>
         Registro{" "}
         <Text style={styles.green}>
@@ -128,7 +126,6 @@ export default function Register() {
         Paso {step} de {totalSteps}
       </Text>
 
-      {/* Barra de progreso */}
       <View style={styles.progressBar}>
         {Array.from({ length: totalSteps }).map((_, i) => (
           <View
@@ -138,7 +135,6 @@ export default function Register() {
         ))}
       </View>
 
-      {/* PASO 1 — Datos personales */}
       {step === 1 && (
         <View style={styles.form}>
           <Text style={styles.label}>NOMBRE COMPLETO</Text>
@@ -172,19 +168,40 @@ export default function Register() {
           />
 
           <Text style={styles.label}>CIUDAD</Text>
-          <View style={styles.pickerWrap}>
-            <Picker
-              selectedValue={form.ciudad}
-              onValueChange={(v) => up("ciudad", v)}
-              style={styles.picker}
-              dropdownIconColor="#555"
+          <TouchableOpacity
+            style={styles.selectBtn}
+            onPress={() => setCityOpen(!cityOpen)}
+          >
+            <Text
+              style={form.ciudad ? styles.selectVal : styles.selectPlaceholder}
             >
-              <Picker.Item label="Selecciona tu ciudad" value="" color="#444" />
+              {form.ciudad || "Selecciona tu ciudad"}
+            </Text>
+            <Text style={styles.selectArrow}>▾</Text>
+          </TouchableOpacity>
+          {cityOpen && (
+            <View style={styles.dropdown}>
               {CIUDADES.map((c) => (
-                <Picker.Item key={c} label={c} value={c} color="#f0ede8" />
+                <TouchableOpacity
+                  key={c}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    up("ciudad", c);
+                    setCityOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownText,
+                      form.ciudad === c && styles.dropdownActive,
+                    ]}
+                  >
+                    {c}
+                  </Text>
+                </TouchableOpacity>
               ))}
-            </Picker>
-          </View>
+            </View>
+          )}
 
           <Text style={styles.label}>CONTRASEÑA</Text>
           <TextInput
@@ -202,7 +219,6 @@ export default function Register() {
         </View>
       )}
 
-      {/* PASO 2 — Cuenta bancaria */}
       {step === 2 && (
         <View style={styles.form}>
           <Text style={styles.label}>BANCO</Text>
@@ -225,18 +241,36 @@ export default function Register() {
           />
 
           <Text style={styles.label}>TIPO DE CUENTA</Text>
-          <View style={styles.pickerWrap}>
-            <Picker
-              selectedValue={form.tipoCuenta}
-              onValueChange={(v) => up("tipoCuenta", v)}
-              style={styles.picker}
-              dropdownIconColor="#555"
-            >
+          <TouchableOpacity
+            style={styles.selectBtn}
+            onPress={() => setTipoOpen(!tipoOpen)}
+          >
+            <Text style={styles.selectVal}>{form.tipoCuenta}</Text>
+            <Text style={styles.selectArrow}>▾</Text>
+          </TouchableOpacity>
+          {tipoOpen && (
+            <View style={styles.dropdown}>
               {["Ahorros", "Corriente", "Nequi", "Daviplata"].map((t) => (
-                <Picker.Item key={t} label={t} value={t} color="#f0ede8" />
+                <TouchableOpacity
+                  key={t}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    up("tipoCuenta", t);
+                    setTipoOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownText,
+                      form.tipoCuenta === t && styles.dropdownActive,
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
               ))}
-            </Picker>
-          </View>
+            </View>
+          )}
 
           <View style={styles.rowBtns}>
             <TouchableOpacity
@@ -264,7 +298,6 @@ export default function Register() {
         </View>
       )}
 
-      {/* PASO 3 — Solo portero: cédula y tarifa */}
       {step === 3 && role === "goalkeeper" && (
         <View style={styles.form}>
           <Text style={styles.label}>CÉDULA DE CIUDADANÍA</Text>
@@ -390,14 +423,33 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     fontSize: 14,
   },
-  pickerWrap: {
+  selectBtn: {
     backgroundColor: "#16161f",
     borderWidth: 1.5,
     borderColor: "#2a2a35",
     borderRadius: 4,
-    overflow: "hidden",
+    padding: 13,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  picker: { color: "#f0ede8", height: 50 },
+  selectVal: { color: "#f0ede8", fontSize: 14 },
+  selectPlaceholder: { color: "#444", fontSize: 14 },
+  selectArrow: { color: "#555", fontSize: 16 },
+  dropdown: {
+    backgroundColor: "#16161f",
+    borderWidth: 1.5,
+    borderColor: "#00ff87",
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  dropdownItem: {
+    padding: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e1e2a",
+  },
+  dropdownText: { color: "#f0ede8", fontSize: 14 },
+  dropdownActive: { color: "#00ff87", fontWeight: "700" },
   btnPrimary: {
     backgroundColor: "#00ff87",
     paddingVertical: 14,
