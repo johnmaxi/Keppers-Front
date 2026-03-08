@@ -565,10 +565,7 @@ export default function GoalkeeperDashboard() {
                         <TouchableOpacity
                           style={styles.btnRate}
                           onPress={() =>
-                            Alert.alert(
-                              "Calificación",
-                              "Funcionalidad próximamente",
-                            )
+                            router.push(`/rating?serviceId=${svc.id}` as any)
                           }
                         >
                           <Text style={styles.btnRateText}>
