@@ -658,6 +658,16 @@ export default function PlayerDashboard() {
                         >
                           <Text style={styles.btnChatText}>💬 Abrir chat</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.btnMap}
+                          onPress={() =>
+                            router.push(`/map?serviceId=${svc.id}` as any)
+                          }
+                        >
+                          <Text style={styles.btnMapText}>
+                            📍 Ver mapa en vivo
+                          </Text>
+                        </TouchableOpacity>
                       </View>
                     )}
 
@@ -991,6 +1001,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnCancelText: { color: "#ff4757", fontSize: 12, fontWeight: "600" },
+  btnMap: {
+    borderWidth: 1.5,
+    borderColor: "#00ff87",
+    borderRadius: 4,
+    padding: 9,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  btnMapText: { color: "#00ff87", fontWeight: "700", fontSize: 12 },
   empty: { alignItems: "center", paddingVertical: 50 },
   emptyEmoji: { fontSize: 42, marginBottom: 10 },
   emptyText: { color: "#444", fontSize: 14, marginBottom: 16 },

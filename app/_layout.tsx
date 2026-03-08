@@ -9,6 +9,7 @@ export default function RootLayout() {
       <Stack.Screen name="player/dashboard" />
       <Stack.Screen name="goalkeeper/dashboard" />
       <Stack.Screen name="chat/index" />
+      <Stack.Screen name="map/index" />
     </Stack>
   );
 }

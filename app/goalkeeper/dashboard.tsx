@@ -527,18 +527,28 @@ export default function GoalkeeperDashboard() {
                     </View>
                   )}
 
-                  {/* Botón Chat — visible cuando está confirmado o en progreso */}
+                  {/* Botones Chat y Mapa — visibles cuando está confirmado o en progreso */}
                   {(canStart || canEnd) && (
-                    <TouchableOpacity
-                      style={styles.btnChat}
-                      onPress={() =>
-                        router.push(`/chat?serviceId=${svc.id}` as any)
-                      }
-                    >
-                      <Text style={styles.btnChatText}>
-                        💬 Chat con el jugador
-                      </Text>
-                    </TouchableOpacity>
+                    <>
+                      <TouchableOpacity
+                        style={styles.btnChat}
+                        onPress={() =>
+                          router.push(`/chat?serviceId=${svc.id}` as any)
+                        }
+                      >
+                        <Text style={styles.btnChatText}>
+                          💬 Chat con el jugador
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.btnMap}
+                        onPress={() =>
+                          router.push(`/map?serviceId=${svc.id}` as any)
+                        }
+                      >
+                        <Text style={styles.btnMapText}>📍 Ver tu ruta</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
 
                   {isDone && (
@@ -782,6 +792,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   btnChatText: { color: "#00aaff", fontWeight: "700", fontSize: 12 },
+  btnMap: {
+    borderWidth: 1.5,
+    borderColor: "#00ff87",
+    borderRadius: 4,
+    padding: 9,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  btnMapText: { color: "#00ff87", fontWeight: "700", fontSize: 12 },
   completedBox: {
     borderTopWidth: 1,
     borderTopColor: "#1a1a24",
