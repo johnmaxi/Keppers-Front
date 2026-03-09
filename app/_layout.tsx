@@ -2,6 +2,7 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { useNotifications } from "../hooks/useNotifications";
 import { useAppStore } from "../store/appStore";
 
 export default function RootLayout() {
@@ -9,17 +10,18 @@ export default function RootLayout() {
   const segments = useSegments();
   const { currentUser, authLoading, initAuth } = useAppStore();
 
-  // Iniciar observer de Firebase Auth una sola vez
+  // Iniciar Firebase Auth observer
   useEffect(() => {
     initAuth();
   }, []);
 
-  // Redirigir automáticamente según estado de sesión
+  // Inicializar notificaciones push (registra token, maneja taps)
+  useNotifications();
+
+  // Redirigir según sesión
   useEffect(() => {
     if (authLoading) return;
-
     const inApp = segments[0] === "player" || segments[0] === "goalkeeper";
-
     if (!currentUser && inApp) {
       router.replace("/" as any);
     } else if (currentUser && !inApp) {
@@ -31,7 +33,6 @@ export default function RootLayout() {
     }
   }, [currentUser, authLoading]);
 
-  // Spinner mientras Firebase verifica la sesión guardada
   if (authLoading) {
     return (
       <View

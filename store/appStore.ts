@@ -1,6 +1,4 @@
-// store/appStore.ts  ← REEMPLAZA el archivo actual
-// Zustand store conectado a Firebase
-
+// store/appStore.ts
 import { create } from "zustand";
 import {
   AppUser,
@@ -10,6 +8,15 @@ import {
   registerUser,
 } from "../services/authService";
 import { listenMessages, Message, sendMessage } from "../services/chatService";
+import {
+  getUserPushToken,
+  notifyCounterOffer,
+  notifyNewMessage,
+  notifyNewOffer,
+  notifyOfferAccepted,
+  notifyServiceCompleted,
+  notifyServiceStarted,
+} from "../services/notificationService";
 import {
   createService,
   addOffer as fbAddOffer,
@@ -23,22 +30,16 @@ import {
 } from "../services/serviceService";
 
 interface AppState {
-  // Auth
   currentUser: AppUser | null;
   authLoading: boolean;
-  // Datos
   services: Service[];
   chats: Record<string, Message[]>;
-  // Unsubs (para limpiar listeners)
   _unsubs: (() => void)[];
 
-  // ── Auth actions ──────────────────────────────────────────────────────────
   initAuth: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (form: any) => Promise<void>;
   logout: () => Promise<void>;
-
-  // ── Service actions ───────────────────────────────────────────────────────
   startListening: () => void;
   stopListening: () => void;
   addService: (data: Omit<Service, "id" | "createdAt">) => Promise<void>;
@@ -52,8 +53,6 @@ interface AppState {
     offerId: string,
     patch: Partial<Offer>,
   ) => Promise<void>;
-
-  // ── Chat actions ──────────────────────────────────────────────────────────
   listenChat: (serviceId: string) => void;
   sendMsg: (
     serviceId: string,
@@ -68,13 +67,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   chats: {},
   _unsubs: [],
 
-  // ── Inicializa observer de auth al arrancar la app ─────────────────────────
   initAuth: () => {
     const unsub = onAuthChanged((user) => {
       set({ currentUser: user, authLoading: false });
-      if (user) {
-        get().startListening();
-      } else {
+      if (user) get().startListening();
+      else {
         get().stopListening();
         set({ services: [] });
       }
@@ -82,43 +79,34 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ _unsubs: [...s._unsubs, unsub] }));
   },
 
-  // ── Login ──────────────────────────────────────────────────────────────────
   login: async (email, password) => {
     const user = await loginUser(email, password);
     set({ currentUser: user });
     get().startListening();
   },
 
-  // ── Registro ───────────────────────────────────────────────────────────────
   register: async (form) => {
     const user = await registerUser(form);
     set({ currentUser: user });
     get().startListening();
   },
 
-  // ── Logout ─────────────────────────────────────────────────────────────────
   logout: async () => {
     get().stopListening();
     await logoutUser();
     set({ currentUser: null, services: [], chats: {} });
   },
 
-  // ── Listeners según rol ────────────────────────────────────────────────────
   startListening: () => {
     const { currentUser, _unsubs } = get();
     if (!currentUser) return;
-
-    // Limpiar listeners anteriores
     _unsubs.forEach((u) => u());
-
     const newUnsubs: (() => void)[] = [];
 
     if (currentUser.role === "player") {
-      // El jugador escucha sus propias solicitudes
       newUnsubs.push(
         listenPlayerServices(currentUser.id, (svcs) => set({ services: svcs })),
       );
-      // Y también las disponibles para ver porteros (pestaña explorar)
       newUnsubs.push(
         listenAvailableServices((available) => {
           set((s) => {
@@ -132,11 +120,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         }),
       );
     } else {
-      // El portero escucha solicitudes disponibles
       newUnsubs.push(
         listenAvailableServices((svcs) => set({ services: svcs })),
       );
-      // Y sus servicios confirmados
       newUnsubs.push(
         listenGoalkeeperServices(currentUser.id, (confirmed) => {
           set((s) => {
@@ -152,7 +138,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         }),
       );
     }
-
     set({ _unsubs: newUnsubs });
   },
 
@@ -161,27 +146,94 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ _unsubs: [] });
   },
 
-  // ── CRUD Servicios ─────────────────────────────────────────────────────────
   addService: async (data) => {
     await createService(data);
-    // El listener onSnapshot actualizará automáticamente
   },
 
   updateService: async (id, patch) => {
+    const svc = get().services.find((s) => s.id === id);
     await fbUpdateService(id, patch);
+
+    // ── Notificación: portero inicia servicio ────────────────────────────────
+    if (patch.status === "in_progress" && svc) {
+      const playerToken = await getUserPushToken(svc.playerId);
+      if (playerToken && svc.confirmedGkName) {
+        notifyServiceStarted({
+          playerToken,
+          gkName: svc.confirmedGkName,
+          cancha: svc.cancha,
+        }).catch(console.error);
+      }
+    }
+
+    // ── Notificación: servicio completado → ambos calificar ──────────────────
+    if (patch.status === "completed" && svc && svc.confirmedGkId) {
+      const [playerToken, gkToken] = await Promise.all([
+        getUserPushToken(svc.playerId),
+        getUserPushToken(svc.confirmedGkId),
+      ]);
+      const gkName = svc.confirmedGkName || "Portero";
+      const playerName = svc.playerName || "Jugador";
+      if (playerToken && gkToken) {
+        notifyServiceCompleted({
+          playerToken,
+          gkToken,
+          gkName,
+          playerName,
+        }).catch(console.error);
+      }
+    }
+
+    // ── Notificación: jugador acepta oferta → notifica portero ───────────────
+    if (patch.status === "confirmed" && patch.confirmedGkId && svc) {
+      const gkToken = await getUserPushToken(patch.confirmedGkId);
+      if (gkToken) {
+        notifyOfferAccepted({
+          gkToken,
+          playerName: svc.playerName,
+          serviceId: id,
+          tipoPartido: svc.tipoPartido,
+          ciudad: svc.ciudad,
+        }).catch(console.error);
+      }
+    }
   },
 
   addOffer: async (serviceId, offer) => {
+    const svc = get().services.find((s) => s.id === serviceId);
     await fbAddOffer(serviceId, offer);
+
+    // ── Notificación: portero envía oferta → notifica jugador ────────────────
+    if (svc) {
+      const playerToken = await getUserPushToken(svc.playerId);
+      if (playerToken) {
+        const isCounter = offer.status === "countered";
+        if (isCounter) {
+          notifyCounterOffer({
+            playerToken,
+            gkName: offer.gkName,
+            serviceId,
+            amount: offer.counterAmount || offer.amount,
+            horas: offer.counterHoras || svc.horas,
+          }).catch(console.error);
+        } else {
+          notifyNewOffer({
+            playerToken,
+            gkName: offer.gkName,
+            serviceId,
+            tipoPartido: svc.tipoPartido,
+            amount: offer.amount,
+          }).catch(console.error);
+        }
+      }
+    }
   },
 
   updateOffer: async (serviceId, offerId, patch) => {
     await fbUpdateOffer(serviceId, offerId, patch);
   },
 
-  // ── Chat ───────────────────────────────────────────────────────────────────
   listenChat: (serviceId) => {
-    // Solo suscribir si no hay listener activo para este chat
     if (get().chats[serviceId] !== undefined) return;
     const unsub = listenMessages(serviceId, (msgs) => {
       set((s) => ({ chats: { ...s.chats, [serviceId]: msgs } }));
@@ -194,6 +246,24 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   sendMsg: async (serviceId, msg) => {
     await sendMessage(serviceId, msg);
-    // onSnapshot actualizará automáticamente
+    // ── Notificación: mensaje de chat ─────────────────────────────────────────
+    const svc = get().services.find((s) => s.id === serviceId);
+    const currentUser = get().currentUser;
+    if (!svc || !currentUser) return;
+
+    const recipientId =
+      currentUser.role === "player" ? svc.confirmedGkId : svc.playerId;
+
+    if (recipientId) {
+      const recipientToken = await getUserPushToken(recipientId);
+      if (recipientToken) {
+        notifyNewMessage({
+          recipientToken,
+          senderName: msg.senderName,
+          text: msg.text,
+          serviceId,
+        }).catch(console.error);
+      }
+    }
   },
 }));
