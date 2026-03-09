@@ -1,7 +1,8 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -10,19 +11,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { BASE, CIUDADES } from "../components/constants";
+import { CIUDADES } from "../components/constants";
 import { useAppStore } from "../store/appStore";
 
 export default function Register() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const { users, addUser, setCurrentUser } = useAppStore();
+  const { register } = useAppStore();
 
   const [cityOpen, setCityOpen] = useState(false);
   const [tipoOpen, setTipoOpen] = useState(false);
-  const [role, setRole] = useState<"player" | "goalkeeper">(
-    (params.type as any) || "player",
-  );
+  const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<"player" | "goalkeeper">("player");
   const [step, setStep] = useState(1);
   const totalSteps = role === "goalkeeper" ? 3 : 2;
 
@@ -48,38 +47,28 @@ export default function Register() {
         Alert.alert("Error", "Completa nombre, correo y contraseña");
         return;
       }
-      if (users.find((u) => u.email === form.email)) {
-        Alert.alert("Error", "Este correo ya está registrado");
+      if (form.password.length < 6) {
+        Alert.alert("Error", "La contraseña debe tener al menos 6 caracteres");
         return;
       }
     }
     setStep((s) => s + 1);
   };
 
-  const finish = () => {
-    const newUser = {
-      id: Date.now(),
-      nombre: form.nombre,
-      email: form.email,
-      password: form.password,
-      telefono: form.telefono,
-      ciudad: form.ciudad,
-      role,
-      rating: 4.5,
-      tarifa: parseInt(form.tarifa) || BASE,
-      banco: form.banco,
-      numCuenta: form.numCuenta,
-      tipoCuenta: form.tipoCuenta,
-      cedula: form.cedula,
-    };
-    addUser(newUser);
-    setCurrentUser(newUser);
-    Alert.alert("¡Bienvenido!", `Hola ${form.nombre}, tu cuenta fue creada.`);
-    router.replace(
-      role === "player"
-        ? ("/player/dashboard" as any)
-        : ("/goalkeeper/dashboard" as any),
-    );
+  const finish = async () => {
+    setLoading(true);
+    try {
+      await register({ ...form, role });
+      // _layout.tsx redirige automáticamente al dashboard
+    } catch (e: any) {
+      const msg =
+        e?.code === "auth/email-already-in-use"
+          ? "Este correo ya está registrado"
+          : e?.message || "Error al crear la cuenta";
+      Alert.alert("Error", msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,6 +124,7 @@ export default function Register() {
         ))}
       </View>
 
+      {/* ── PASO 1 ── */}
       {step === 1 && (
         <View style={styles.form}>
           <Text style={styles.label}>NOMBRE COMPLETO</Text>
@@ -206,7 +196,7 @@ export default function Register() {
           <Text style={styles.label}>CONTRASEÑA</Text>
           <TextInput
             style={styles.input}
-            placeholder="••••••••"
+            placeholder="Mínimo 6 caracteres"
             placeholderTextColor="#444"
             secureTextEntry
             value={form.password}
@@ -219,6 +209,7 @@ export default function Register() {
         </View>
       )}
 
+      {/* ── PASO 2 ── */}
       {step === 2 && (
         <View style={styles.form}>
           <Text style={styles.label}>BANCO</Text>
@@ -288,16 +279,26 @@ export default function Register() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.btnPrimary, { flex: 1 }]}
+                style={[
+                  styles.btnPrimary,
+                  { flex: 1 },
+                  loading && styles.btnDisabled,
+                ]}
                 onPress={finish}
+                disabled={loading}
               >
-                <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
+                {loading ? (
+                  <ActivityIndicator color="#0a0a0f" />
+                ) : (
+                  <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
+                )}
               </TouchableOpacity>
             )}
           </View>
         </View>
       )}
 
+      {/* ── PASO 3 solo portero ── */}
       {step === 3 && role === "goalkeeper" && (
         <View style={styles.form}>
           <Text style={styles.label}>CÉDULA DE CIUDADANÍA</Text>
@@ -334,10 +335,19 @@ export default function Register() {
               <Text style={styles.btnOutlineText}>← Atrás</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.btnPrimary, { flex: 1 }]}
+              style={[
+                styles.btnPrimary,
+                { flex: 1 },
+                loading && styles.btnDisabled,
+              ]}
               onPress={finish}
+              disabled={loading}
             >
-              <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
+              {loading ? (
+                <ActivityIndicator color="#0a0a0f" />
+              ) : (
+                <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -457,6 +467,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 22,
   },
+  btnDisabled: { backgroundColor: "#1a3a1a" },
   btnPrimaryText: { color: "#0a0a0f", fontWeight: "700", fontSize: 15 },
   btnOutline: {
     borderWidth: 1.5,
