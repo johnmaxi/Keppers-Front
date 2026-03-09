@@ -102,7 +102,7 @@ export default function PlayerDashboard() {
     setTab("svcs");
   };
 
-  const acceptOffer = (svcId: number, offerId: number) => {
+  const acceptOffer = (svcId: string, offerId: string) => {
     const svc = services.find((s) => s.id === svcId);
     const off = svc?.ofertas?.find((o) => o.id === offerId);
     if (!svc || !off) return;
@@ -118,7 +118,7 @@ export default function PlayerDashboard() {
     Alert.alert("✅", `¡${off.gkName} confirmado!`);
   };
 
-  const rejectOffer = (svcId: number, offerId: number) =>
+  const rejectOffer = (svcId: string, offerId: string) =>
     updateOffer(svcId, offerId, { status: "rejected" });
 
   const handleLogout = () => {

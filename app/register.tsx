@@ -14,11 +14,32 @@ import {
 import { CIUDADES } from "../components/constants";
 import { useAppStore } from "../store/appStore";
 
+const BANCOS = [
+  "Bancolombia",
+  "Davivienda",
+  "Banco de Bogotá",
+  "BBVA Colombia",
+  "Banco Popular",
+  "Scotiabank Colpatria",
+  "Banco de Occidente",
+  "Banco Caja Social",
+  "Nequi",
+  "Daviplata",
+  "Banco Agrario",
+  "Banco Falabella",
+  "Banco Pichincha",
+  "Bancamía",
+  "Otro",
+];
+
+const TIPOS_CUENTA = ["Ahorros", "Corriente", "Nequi", "Daviplata"];
+
 export default function Register() {
   const router = useRouter();
   const { register } = useAppStore();
 
   const [cityOpen, setCityOpen] = useState(false);
+  const [bancoOpen, setBancoOpen] = useState(false);
   const [tipoOpen, setTipoOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<"player" | "goalkeeper">("player");
@@ -37,7 +58,6 @@ export default function Register() {
     cedula: "",
     tarifa: "",
   });
-
   const up = (key: string, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
 
@@ -59,7 +79,6 @@ export default function Register() {
     setLoading(true);
     try {
       await register({ ...form, role });
-      // _layout.tsx redirige automáticamente al dashboard
     } catch (e: any) {
       const msg =
         e?.code === "auth/email-already-in-use"
@@ -75,6 +94,7 @@ export default function Register() {
     <ScrollView contentContainerStyle={styles.container}>
       <StatusBar style="light" />
 
+      {/* Logo */}
       <View style={styles.logoRow}>
         <View style={styles.logoIcon}>
           <Text style={styles.logoEmoji}>🧤</Text>
@@ -84,6 +104,7 @@ export default function Register() {
         </Text>
       </View>
 
+      {/* Selector de rol */}
       {step === 1 && (
         <View style={styles.roleRow}>
           {(["player", "goalkeeper"] as const).map((r) => (
@@ -124,7 +145,7 @@ export default function Register() {
         ))}
       </View>
 
-      {/* ── PASO 1 ── */}
+      {/* ── PASO 1 — Datos personales ── */}
       {step === 1 && (
         <View style={styles.form}>
           <Text style={styles.label}>NOMBRE COMPLETO</Text>
@@ -136,7 +157,7 @@ export default function Register() {
             onChangeText={(v) => up("nombre", v)}
           />
 
-          <Text style={styles.label}>CORREO</Text>
+          <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
           <TextInput
             style={styles.input}
             placeholder="tu@correo.com"
@@ -160,14 +181,18 @@ export default function Register() {
           <Text style={styles.label}>CIUDAD</Text>
           <TouchableOpacity
             style={styles.selectBtn}
-            onPress={() => setCityOpen(!cityOpen)}
+            onPress={() => {
+              setCityOpen(!cityOpen);
+              setBancoOpen(false);
+              setTipoOpen(false);
+            }}
           >
             <Text
               style={form.ciudad ? styles.selectVal : styles.selectPlaceholder}
             >
               {form.ciudad || "Selecciona tu ciudad"}
             </Text>
-            <Text style={styles.selectArrow}>▾</Text>
+            <Text style={styles.selectArrow}>{cityOpen ? "▴" : "▾"}</Text>
           </TouchableOpacity>
           {cityOpen && (
             <View style={styles.dropdown}>
@@ -186,6 +211,7 @@ export default function Register() {
                       form.ciudad === c && styles.dropdownActive,
                     ]}
                   >
+                    {form.ciudad === c ? "✓ " : ""}
                     {c}
                   </Text>
                 </TouchableOpacity>
@@ -209,17 +235,48 @@ export default function Register() {
         </View>
       )}
 
-      {/* ── PASO 2 ── */}
+      {/* ── PASO 2 — Cuenta bancaria ── */}
       {step === 2 && (
         <View style={styles.form}>
           <Text style={styles.label}>BANCO</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Bancolombia, Nequi..."
-            placeholderTextColor="#444"
-            value={form.banco}
-            onChangeText={(v) => up("banco", v)}
-          />
+          <TouchableOpacity
+            style={styles.selectBtn}
+            onPress={() => {
+              setBancoOpen(!bancoOpen);
+              setTipoOpen(false);
+            }}
+          >
+            <Text
+              style={form.banco ? styles.selectVal : styles.selectPlaceholder}
+            >
+              {form.banco || "Selecciona tu banco"}
+            </Text>
+            <Text style={styles.selectArrow}>{bancoOpen ? "▴" : "▾"}</Text>
+          </TouchableOpacity>
+          {bancoOpen && (
+            <View style={styles.dropdown}>
+              {BANCOS.map((b) => (
+                <TouchableOpacity
+                  key={b}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    up("banco", b);
+                    setBancoOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownText,
+                      form.banco === b && styles.dropdownActive,
+                    ]}
+                  >
+                    {form.banco === b ? "✓ " : ""}
+                    {b}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <Text style={styles.label}>NÚMERO DE CUENTA</Text>
           <TextInput
@@ -234,14 +291,17 @@ export default function Register() {
           <Text style={styles.label}>TIPO DE CUENTA</Text>
           <TouchableOpacity
             style={styles.selectBtn}
-            onPress={() => setTipoOpen(!tipoOpen)}
+            onPress={() => {
+              setTipoOpen(!tipoOpen);
+              setBancoOpen(false);
+            }}
           >
             <Text style={styles.selectVal}>{form.tipoCuenta}</Text>
-            <Text style={styles.selectArrow}>▾</Text>
+            <Text style={styles.selectArrow}>{tipoOpen ? "▴" : "▾"}</Text>
           </TouchableOpacity>
           {tipoOpen && (
             <View style={styles.dropdown}>
-              {["Ahorros", "Corriente", "Nequi", "Daviplata"].map((t) => (
+              {TIPOS_CUENTA.map((t) => (
                 <TouchableOpacity
                   key={t}
                   style={styles.dropdownItem}
@@ -256,6 +316,7 @@ export default function Register() {
                       form.tipoCuenta === t && styles.dropdownActive,
                     ]}
                   >
+                    {form.tipoCuenta === t ? "✓ " : ""}
                     {t}
                   </Text>
                 </TouchableOpacity>
@@ -298,7 +359,7 @@ export default function Register() {
         </View>
       )}
 
-      {/* ── PASO 3 solo portero ── */}
+      {/* ── PASO 3 — Solo portero ── */}
       {step === 3 && role === "goalkeeper" && (
         <View style={styles.form}>
           <Text style={styles.label}>CÉDULA DE CIUDADANÍA</Text>
@@ -452,6 +513,7 @@ const styles = StyleSheet.create({
     borderColor: "#00ff87",
     borderRadius: 4,
     marginTop: 4,
+    maxHeight: 220,
   },
   dropdownItem: {
     padding: 13,

@@ -30,17 +30,17 @@ export default function GoalkeeperDashboard() {
     logout,
   } = useAppStore();
   const [tab, setTab] = useState("available");
-  const [expanded, setExpanded] = useState<number | null>(null);
-  const [forms, setForms] = useState<Record<number, any>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [forms, setForms] = useState<Record<string, any>>({});
 
-  const gf = (id: number) =>
+  const gf = (id: string) =>
     forms[id] || {
       msg: "",
       tarifa: String(currentUser?.tarifa || BASE),
       horas: 2,
       mode: "offer",
     };
-  const sf = (id: number, patch: any) =>
+  const sf = (id: string, patch: any) =>
     setForms((f) => ({ ...f, [id]: { ...gf(id), ...patch } }));
 
   const available = services.filter(
@@ -62,11 +62,11 @@ export default function GoalkeeperDashboard() {
     (s) => s.status === "confirmed" || s.status === "in_progress",
   ).length;
 
-  const sendOffer = (svcId: number) => {
+  const sendOffer = (svcId: string) => {
     const f = gf(svcId);
     const isC = f.mode === "counter";
     addOffer(svcId, {
-      id: Date.now(),
+      id: String(Date.now()),
       gkId: currentUser!.id,
       gkName: currentUser!.nombre,
       gkRating: currentUser!.rating || 4.7,
@@ -81,7 +81,7 @@ export default function GoalkeeperDashboard() {
     setExpanded(null);
   };
 
-  const startService = (svcId: number) => {
+  const startService = (svcId: string) => {
     Alert.alert("Iniciar servicio", "¿Confirmas que ya estás en la cancha?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -97,7 +97,7 @@ export default function GoalkeeperDashboard() {
     ]);
   };
 
-  const endService = (svcId: number) => {
+  const endService = (svcId: string) => {
     Alert.alert("Finalizar servicio", "¿Confirmas que el partido terminó?", [
       { text: "Cancelar", style: "cancel" },
       {
