@@ -102,24 +102,33 @@ export default function PlayerDashboard() {
     setTab("svcs");
   };
 
-  const acceptOffer = (svcId: string, offerId: string) => {
+  const acceptOffer = async (svcId: string, offerId: string) => {
     const svc = services.find((s) => s.id === svcId);
     const off = svc?.ofertas?.find((o) => o.id === offerId);
     if (!svc || !off) return;
     const total = (off.counterAmount || off.amount) * svc.horas;
-    updateService(svcId, {
-      status: "confirmed",
-      acceptedOffer: offerId,
-      confirmedGkName: off.gkName,
-      confirmedGkId: off.gkId,
-      total,
-    });
-    updateOffer(svcId, offerId, { status: "accepted" });
-    Alert.alert("✅", `¡${off.gkName} confirmado!`);
+    try {
+      await updateService(svcId, {
+        status: "confirmed",
+        acceptedOffer: offerId,
+        confirmedGkName: off.gkName,
+        confirmedGkId: off.gkId,
+        total,
+      });
+      await updateOffer(svcId, offerId, { status: "accepted" });
+      Alert.alert("✅", `¡${off.gkName} confirmado!`);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "No se pudo confirmar");
+    }
   };
 
-  const rejectOffer = (svcId: string, offerId: string) =>
-    updateOffer(svcId, offerId, { status: "rejected" });
+  const rejectOffer = async (svcId: string, offerId: string) => {
+    try {
+      await updateOffer(svcId, offerId, { status: "rejected" });
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "No se pudo rechazar");
+    }
+  };
 
   const handleLogout = () => {
     logout();

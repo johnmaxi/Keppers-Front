@@ -43,11 +43,11 @@ interface AppState {
   startListening: () => void;
   stopListening: () => void;
   addService: (data: Omit<Service, "id" | "createdAt">) => Promise<void>;
-  updateService: (id: string, patch: Partial<Service>) => Promise<void>;
-  addOffer: (
-    serviceId: string,
-    offer: Omit<Offer, "createdAt">,
+  updateService: (
+    id: string,
+    patch: Partial<Omit<Service, "id">>,
   ) => Promise<void>;
+  addOffer: (serviceId: string, offer: Offer) => Promise<void>;
   updateOffer: (
     serviceId: string,
     offerId: string,
@@ -121,19 +121,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       );
     } else {
       newUnsubs.push(
-        listenAvailableServices((svcs) => set({ services: svcs })),
+        listenAvailableServices((svcs) => {
+          set((s) => {
+            // Keep confirmed/in_progress/completed, replace pending
+            const nonPending = s.services.filter((x) => x.status !== "pending");
+            const nonPendingIds = new Set(nonPending.map((x) => x.id));
+            return {
+              services: [
+                ...nonPending,
+                ...svcs.filter((x) => !nonPendingIds.has(x.id)),
+              ],
+            };
+          });
+        }),
       );
       newUnsubs.push(
         listenGoalkeeperServices(currentUser.id, (confirmed) => {
           set((s) => {
-            const pendingIds = new Set(
-              s.services.filter((x) => x.status === "pending").map((x) => x.id),
-            );
-            const merged = [
-              ...s.services.filter((x) => pendingIds.has(x.id)),
-              ...confirmed,
-            ];
-            return { services: merged };
+            const confirmedIds = new Set(confirmed.map((x) => x.id));
+            return {
+              services: [
+                ...s.services.filter((x) => !confirmedIds.has(x.id)),
+                ...confirmed,
+              ],
+            };
           });
         }),
       );
@@ -154,9 +165,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const svc = get().services.find((s) => s.id === id);
     await fbUpdateService(id, patch);
 
-    // ── Notificación: portero inicia servicio ────────────────────────────────
-    if (patch.status === "in_progress" && svc) {
-      const playerToken = await getUserPushToken(svc.playerId);
+    if (!svc) return;
+
+    // Notif: portero inicia servicio
+    if (patch.status === "in_progress") {
+      const playerToken = await getUserPushToken(svc.playerId).catch(
+        () => null,
+      );
       if (playerToken && svc.confirmedGkName) {
         notifyServiceStarted({
           playerToken,
@@ -166,27 +181,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    // ── Notificación: servicio completado → ambos calificar ──────────────────
-    if (patch.status === "completed" && svc && svc.confirmedGkId) {
-      const [playerToken, gkToken] = await Promise.all([
-        getUserPushToken(svc.playerId),
-        getUserPushToken(svc.confirmedGkId),
+    // Notif: servicio completado
+    if (patch.status === "completed" && svc.confirmedGkId) {
+      const [pt, gt] = await Promise.all([
+        getUserPushToken(svc.playerId).catch(() => null),
+        getUserPushToken(svc.confirmedGkId).catch(() => null),
       ]);
-      const gkName = svc.confirmedGkName || "Portero";
-      const playerName = svc.playerName || "Jugador";
-      if (playerToken && gkToken) {
+      if (pt && gt) {
         notifyServiceCompleted({
-          playerToken,
-          gkToken,
-          gkName,
-          playerName,
+          playerToken: pt,
+          gkToken: gt,
+          gkName: svc.confirmedGkName || "Portero",
+          playerName: svc.playerName || "Jugador",
         }).catch(console.error);
       }
     }
 
-    // ── Notificación: jugador acepta oferta → notifica portero ───────────────
-    if (patch.status === "confirmed" && patch.confirmedGkId && svc) {
-      const gkToken = await getUserPushToken(patch.confirmedGkId);
+    // Notif: jugador acepta oferta
+    if (patch.status === "confirmed" && patch.confirmedGkId) {
+      const gkToken = await getUserPushToken(patch.confirmedGkId).catch(
+        () => null,
+      );
       if (gkToken) {
         notifyOfferAccepted({
           gkToken,
@@ -203,29 +218,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     const svc = get().services.find((s) => s.id === serviceId);
     await fbAddOffer(serviceId, offer);
 
-    // ── Notificación: portero envía oferta → notifica jugador ────────────────
-    if (svc) {
-      const playerToken = await getUserPushToken(svc.playerId);
-      if (playerToken) {
-        const isCounter = offer.status === "countered";
-        if (isCounter) {
-          notifyCounterOffer({
-            playerToken,
-            gkName: offer.gkName,
-            serviceId,
-            amount: offer.counterAmount || offer.amount,
-            horas: offer.counterHoras || svc.horas,
-          }).catch(console.error);
-        } else {
-          notifyNewOffer({
-            playerToken,
-            gkName: offer.gkName,
-            serviceId,
-            tipoPartido: svc.tipoPartido,
-            amount: offer.amount,
-          }).catch(console.error);
-        }
-      }
+    if (!svc) return;
+    const playerToken = await getUserPushToken(svc.playerId).catch(() => null);
+    if (!playerToken) return;
+
+    if (offer.status === "countered") {
+      notifyCounterOffer({
+        playerToken,
+        gkName: offer.gkName,
+        serviceId,
+        amount: offer.counterAmount || offer.amount,
+        horas: offer.counterHoras || svc.horas,
+      }).catch(console.error);
+    } else {
+      notifyNewOffer({
+        playerToken,
+        gkName: offer.gkName,
+        serviceId,
+        tipoPartido: svc.tipoPartido,
+        amount: offer.amount,
+      }).catch(console.error);
     }
   },
 
@@ -246,24 +258,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   sendMsg: async (serviceId, msg) => {
     await sendMessage(serviceId, msg);
-    // ── Notificación: mensaje de chat ─────────────────────────────────────────
     const svc = get().services.find((s) => s.id === serviceId);
-    const currentUser = get().currentUser;
-    if (!svc || !currentUser) return;
-
+    const user = get().currentUser;
+    if (!svc || !user) return;
     const recipientId =
-      currentUser.role === "player" ? svc.confirmedGkId : svc.playerId;
-
-    if (recipientId) {
-      const recipientToken = await getUserPushToken(recipientId);
-      if (recipientToken) {
-        notifyNewMessage({
-          recipientToken,
-          senderName: msg.senderName,
-          text: msg.text,
-          serviceId,
-        }).catch(console.error);
-      }
+      user.role === "player" ? svc.confirmedGkId : svc.playerId;
+    if (!recipientId) return;
+    const token = await getUserPushToken(recipientId).catch(() => null);
+    if (token) {
+      notifyNewMessage({
+        recipientToken: token,
+        senderName: msg.senderName,
+        text: msg.text,
+        serviceId,
+      }).catch(console.error);
     }
   },
 }));

@@ -65,7 +65,7 @@ export default function GoalkeeperDashboard() {
   const sendOffer = (svcId: string) => {
     const f = gf(svcId);
     const isC = f.mode === "counter";
-    addOffer(svcId, {
+    const offer: any = {
       id: String(Date.now()),
       gkId: currentUser!.id,
       gkName: currentUser!.nombre,
@@ -76,7 +76,8 @@ export default function GoalkeeperDashboard() {
       counterAmount: isC ? parseInt(f.tarifa) : null,
       counterHoras: isC ? parseInt(f.horas) : null,
       counterMsg: isC ? f.msg : null,
-    });
+    };
+    addOffer(svcId, offer);
     Alert.alert("✅", isC ? "¡Contraoferta enviada!" : "¡Oferta enviada!");
     setExpanded(null);
   };
