@@ -73,12 +73,14 @@ export async function addOffer(
   serviceId: string,
   offer: Offer
 ): Promise<void> {
-  const snap = await getDoc(doc(db, "services", serviceId));
+  if (!serviceId || typeof serviceId !== "string" || serviceId.includes("/")) {
+    throw new Error(`serviceId inválido: ${serviceId}`);
+  }
+  const ref  = doc(db, "services", serviceId);
+  const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("Servicio no encontrado");
   const ofertas: Offer[] = snap.data().ofertas || [];
-  await updateDoc(doc(db, "services", serviceId), {
-    ofertas: [...ofertas, offer],
-  });
+  await updateDoc(ref, { ofertas: [...ofertas, offer] });
 }
 
 // ── Actualizar oferta ─────────────────────────────────────────────────────────

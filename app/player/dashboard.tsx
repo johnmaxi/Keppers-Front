@@ -3,12 +3,13 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import {
   BASE,
@@ -16,9 +17,18 @@ import {
   CIUDADES,
   GKS,
   MEDIOS_PAGO,
-  TIPOS_PARTIDO,
 } from "../../components/constants";
 import { useAppStore } from "../../store/appStore";
+
+// Sin "Pichanga"
+const TIPOS_PARTIDO = [
+  "Fútbol 5",
+  "Fútbol 7",
+  "Fútbol 8",
+  "Fútbol 11",
+  "Entrenamiento",
+  "Torneo",
+];
 
 const TABS = [
   { key: "explore", label: "Explorar", emoji: "🔍" },
@@ -26,6 +36,143 @@ const TABS = [
   { key: "svcs", label: "Mis Solicitudes", emoji: "📋" },
 ];
 
+// ── Mini calendario ───────────────────────────────────────────────────────────
+function CalendarPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (d: string) => void;
+}) {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [open, setOpen] = useState(false);
+
+  const MONTHS = [
+    "Ene",
+    "Feb",
+    "Mar",
+    "Abr",
+    "May",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dic",
+  ];
+  const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysCount = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysCount }, (_, i) => i + 1),
+  ];
+
+  const prevMonth = () => {
+    if (month === 0) {
+      setMonth(11);
+      setYear((y) => y - 1);
+    } else setMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 11) {
+      setMonth(0);
+      setYear((y) => y + 1);
+    } else setMonth((m) => m + 1);
+  };
+  const selectDay = (d: number) => {
+    const dd = String(d).padStart(2, "0");
+    const mm = String(month + 1).padStart(2, "0");
+    onChange(`${year}-${mm}-${dd}`);
+    setOpen(false);
+  };
+  const isToday = (d: number) => {
+    const t = new Date();
+    return (
+      d === t.getDate() && month === t.getMonth() && year === t.getFullYear()
+    );
+  };
+  const isPast = (d: number) =>
+    new Date(year, month, d) < new Date(today.toDateString());
+
+  return (
+    <>
+      <TouchableOpacity style={styles.selectBtn} onPress={() => setOpen(true)}>
+        <Text style={value ? styles.selectVal : styles.selectPlaceholder}>
+          {value || "Selecciona fecha"}
+        </Text>
+        <Text style={styles.selectArrow}>📅</Text>
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <TouchableOpacity
+          style={calS.overlay}
+          activeOpacity={1}
+          onPress={() => setOpen(false)}
+        >
+          <View style={calS.box} onStartShouldSetResponder={() => true}>
+            {/* Header mes */}
+            <View style={calS.header}>
+              <TouchableOpacity onPress={prevMonth}>
+                <Text style={calS.navBtn}>◀</Text>
+              </TouchableOpacity>
+              <Text style={calS.monthLabel}>
+                {MONTHS[month]} {year}
+              </Text>
+              <TouchableOpacity onPress={nextMonth}>
+                <Text style={calS.navBtn}>▶</Text>
+              </TouchableOpacity>
+            </View>
+            {/* Días de semana */}
+            <View style={calS.weekRow}>
+              {DAYS.map((d, i) => (
+                <Text key={i} style={calS.weekDay}>
+                  {d}
+                </Text>
+              ))}
+            </View>
+            {/* Grilla */}
+            <View style={calS.grid}>
+              {cells.map((d, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    calS.cell,
+                    !!d && isToday(d) ? calS.cellToday : null,
+                    !!d && isPast(d) ? calS.cellPast : null,
+                    !!d &&
+                    value ===
+                      `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+                      ? calS.cellSelected
+                      : null,
+                  ]}
+                  onPress={() => d && !isPast(d) && selectDay(d)}
+                  disabled={!d || isPast(d)}
+                >
+                  <Text
+                    style={[
+                      calS.cellText,
+                      !!d && isPast(d) ? calS.cellTextPast : null,
+                      !!d && isToday(d) ? calS.cellTextToday : null,
+                    ]}
+                  >
+                    {d ?? ""}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
+// ── Dashboard principal ───────────────────────────────────────────────────────
 export default function PlayerDashboard() {
   const router = useRouter();
   const {
@@ -54,7 +201,14 @@ export default function PlayerDashboard() {
     hora: "",
     nota: "",
   });
-  const up = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const up = (k: string, v: any) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    // Cerrar otros dropdowns al abrir uno
+    if (k !== "ciudad") setCityOpen(false);
+    if (k !== "cancha") setCanchaOpen(false);
+    if (k !== "tipoPartido") setTipoOpen(false);
+    if (k !== "medioPago") setPagoOpen(false);
+  };
 
   const mySvcs = services.filter((s) => s.playerId === currentUser?.id);
   const pendingOffers = mySvcs.reduce(
@@ -66,7 +220,7 @@ export default function PlayerDashboard() {
     0,
   );
 
-  const submitService = () => {
+  const submitService = async () => {
     if (
       !form.ciudad ||
       !form.cancha ||
@@ -78,48 +232,74 @@ export default function PlayerDashboard() {
       Alert.alert("Error", "Completa todos los campos");
       return;
     }
-    addService({
-      id: Date.now(),
-      ...form,
-      playerId: currentUser!.id,
-      playerName: currentUser!.nombre,
-      status: "pending",
-      total: form.horas * BASE,
-      ofertas: [],
-      createdAt: new Date().toISOString(),
-    } as any);
-    Alert.alert("¡Listo!", "Solicitud publicada.");
-    setForm({
-      ciudad: "",
-      cancha: "",
-      tipoPartido: "",
-      horas: 1,
-      medioPago: "",
-      fecha: "",
-      hora: "",
-      nota: "",
-    });
-    setTab("svcs");
+    try {
+      await addService({
+        playerId: currentUser!.id,
+        playerName: currentUser!.nombre,
+        ciudad: form.ciudad,
+        cancha: form.cancha,
+        tipoPartido: form.tipoPartido,
+        horas: form.horas,
+        medioPago: form.medioPago,
+        fecha: form.fecha,
+        hora: form.hora,
+        nota: form.nota,
+        status: "pending",
+        total: form.horas * BASE,
+        ofertas: [],
+        acceptedOffer: null,
+        confirmedGkId: null,
+        confirmedGkName: null,
+        gkRatingGiven: null,
+        playerRatingGiven: null,
+      } as any);
+      Alert.alert("¡Listo!", "Solicitud publicada.");
+      setForm({
+        ciudad: "",
+        cancha: "",
+        tipoPartido: "",
+        horas: 1,
+        medioPago: "",
+        fecha: "",
+        hora: "",
+        nota: "",
+      });
+      setTab("svcs");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "No se pudo publicar");
+    }
   };
 
   const acceptOffer = async (svcId: string, offerId: string) => {
     const svc = services.find((s) => s.id === svcId);
     const off = svc?.ofertas?.find((o) => o.id === offerId);
     if (!svc || !off) return;
-    const total = (off.counterAmount || off.amount) * svc.horas;
-    try {
-      await updateService(svcId, {
-        status: "confirmed",
-        acceptedOffer: offerId,
-        confirmedGkName: off.gkName,
-        confirmedGkId: off.gkId,
-        total,
-      });
-      await updateOffer(svcId, offerId, { status: "accepted" });
-      Alert.alert("✅", `¡${off.gkName} confirmado!`);
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "No se pudo confirmar");
-    }
+    Alert.alert(
+      "Confirmar portero",
+      `¿Confirmar a ${off.gkName} por $${(off.counterAmount || off.amount).toLocaleString()}/hr?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Confirmar",
+          onPress: async () => {
+            try {
+              const total = (off.counterAmount || off.amount) * svc.horas;
+              await updateService(svcId, {
+                status: "confirmed",
+                acceptedOffer: offerId,
+                confirmedGkName: off.gkName,
+                confirmedGkId: off.gkId,
+                total,
+              });
+              await updateOffer(svcId, offerId, { status: "accepted" });
+              Alert.alert("✅", `¡${off.gkName} confirmado!`);
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "No se pudo confirmar");
+            }
+          },
+        },
+      ],
+    );
   };
 
   const rejectOffer = async (svcId: string, offerId: string) => {
@@ -130,9 +310,39 @@ export default function PlayerDashboard() {
     }
   };
 
+  const cancelService = (svcId: string) => {
+    Alert.alert(
+      "Cancelar solicitud",
+      "¿Seguro que quieres cancelar esta solicitud?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Sí, cancelar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await updateService(svcId, { status: "cancelled" });
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "No se pudo cancelar");
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleLogout = () => {
-    logout();
-    router.replace("/" as any);
+    Alert.alert("Cerrar sesión", "¿Seguro que quieres salir?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Salir",
+        style: "destructive",
+        onPress: () => {
+          logout();
+          router.replace("/" as any);
+        },
+      },
+    ]);
   };
 
   const statusColor: Record<string, string> = {
@@ -168,7 +378,7 @@ export default function PlayerDashboard() {
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>⚽ Jugador</Text>
           </View>
-          <TouchableOpacity onPress={handleLogout}>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
             <Text style={styles.logoutText}>Salir</Text>
           </TouchableOpacity>
         </View>
@@ -197,6 +407,7 @@ export default function PlayerDashboard() {
       <ScrollView
         style={styles.body}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
       >
         {/* ── EXPLORAR ── */}
         {tab === "explore" && (
@@ -208,12 +419,12 @@ export default function PlayerDashboard() {
                 onPress={() => setFilterCityOpen(!filterCityOpen)}
               >
                 <Text style={styles.filterBtnText}>
-                  {filterCity || "Todas las ciudades"} ▾
+                  {filterCity || "Todas"} ▾
                 </Text>
               </TouchableOpacity>
             </View>
             {filterCityOpen && (
-              <View style={styles.dropdown}>
+              <View style={[styles.dropdown, { marginBottom: 10 }]}>
                 <TouchableOpacity
                   style={styles.dropdownItem}
                   onPress={() => {
@@ -308,7 +519,12 @@ export default function PlayerDashboard() {
             <Text style={styles.label}>CIUDAD</Text>
             <TouchableOpacity
               style={styles.selectBtn}
-              onPress={() => setCityOpen(!cityOpen)}
+              onPress={() => {
+                setCityOpen(!cityOpen);
+                setCanchaOpen(false);
+                setTipoOpen(false);
+                setPagoOpen(false);
+              }}
             >
               <Text
                 style={
@@ -317,7 +533,7 @@ export default function PlayerDashboard() {
               >
                 {form.ciudad || "Selecciona ciudad"}
               </Text>
-              <Text style={styles.selectArrow}>▾</Text>
+              <Text style={styles.selectArrow}>{cityOpen ? "▴" : "▾"}</Text>
             </TouchableOpacity>
             {cityOpen && (
               <View style={styles.dropdown}>
@@ -347,7 +563,13 @@ export default function PlayerDashboard() {
             <Text style={styles.label}>CANCHA</Text>
             <TouchableOpacity
               style={[styles.selectBtn, !form.ciudad && { opacity: 0.4 }]}
-              onPress={() => form.ciudad && setCanchaOpen(!canchaOpen)}
+              onPress={() => {
+                if (!form.ciudad) return;
+                setCanchaOpen(!canchaOpen);
+                setCityOpen(false);
+                setTipoOpen(false);
+                setPagoOpen(false);
+              }}
             >
               <Text
                 style={
@@ -356,7 +578,7 @@ export default function PlayerDashboard() {
               >
                 {form.cancha || "Selecciona cancha"}
               </Text>
-              <Text style={styles.selectArrow}>▾</Text>
+              <Text style={styles.selectArrow}>{canchaOpen ? "▴" : "▾"}</Text>
             </TouchableOpacity>
             {canchaOpen && (
               <View style={styles.dropdown}>
@@ -385,7 +607,12 @@ export default function PlayerDashboard() {
             <Text style={styles.label}>TIPO DE PARTIDO</Text>
             <TouchableOpacity
               style={styles.selectBtn}
-              onPress={() => setTipoOpen(!tipoOpen)}
+              onPress={() => {
+                setTipoOpen(!tipoOpen);
+                setCityOpen(false);
+                setCanchaOpen(false);
+                setPagoOpen(false);
+              }}
             >
               <Text
                 style={
@@ -394,7 +621,7 @@ export default function PlayerDashboard() {
               >
                 {form.tipoPartido || "Selecciona formato"}
               </Text>
-              <Text style={styles.selectArrow}>▾</Text>
+              <Text style={styles.selectArrow}>{tipoOpen ? "▴" : "▾"}</Text>
             </TouchableOpacity>
             {tipoOpen && (
               <View style={styles.dropdown}>
@@ -413,6 +640,7 @@ export default function PlayerDashboard() {
                         form.tipoPartido === t && styles.dropdownActive,
                       ]}
                     >
+                      {form.tipoPartido === t ? "✓ " : ""}
                       {t}
                     </Text>
                   </TouchableOpacity>
@@ -446,7 +674,12 @@ export default function PlayerDashboard() {
             <Text style={styles.label}>MEDIO DE PAGO</Text>
             <TouchableOpacity
               style={styles.selectBtn}
-              onPress={() => setPagoOpen(!pagoOpen)}
+              onPress={() => {
+                setPagoOpen(!pagoOpen);
+                setCityOpen(false);
+                setCanchaOpen(false);
+                setTipoOpen(false);
+              }}
             >
               <Text
                 style={
@@ -455,7 +688,7 @@ export default function PlayerDashboard() {
               >
                 {form.medioPago || "Selecciona medio"}
               </Text>
-              <Text style={styles.selectArrow}>▾</Text>
+              <Text style={styles.selectArrow}>{pagoOpen ? "▴" : "▾"}</Text>
             </TouchableOpacity>
             {pagoOpen && (
               <View style={styles.dropdown}>
@@ -474,6 +707,7 @@ export default function PlayerDashboard() {
                         form.medioPago === m && styles.dropdownActive,
                       ]}
                     >
+                      {form.medioPago === m ? "✓ " : ""}
                       {m}
                     </Text>
                   </TouchableOpacity>
@@ -482,12 +716,9 @@ export default function PlayerDashboard() {
             )}
 
             <Text style={styles.label}>FECHA</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#444"
+            <CalendarPicker
               value={form.fecha}
-              onChangeText={(v) => up("fecha", v)}
+              onChange={(d) => up("fecha", d)}
             />
 
             <Text style={styles.label}>HORA DE INICIO</Text>
@@ -529,13 +760,11 @@ export default function PlayerDashboard() {
         {/* ── MIS SOLICITUDES ── */}
         {tab === "svcs" && (
           <View>
-            <Text style={styles.sectionTitle}>
-              Mis solicitudes ({mySvcs.length})
-            </Text>
+            <Text style={styles.sectionTitle}>Mis solicitudes</Text>
             {mySvcs.length === 0 && (
               <View style={styles.empty}>
                 <Text style={styles.emptyEmoji}>📋</Text>
-                <Text style={styles.emptyText}>Sin solicitudes aún</Text>
+                <Text style={styles.emptyText}>No tienes solicitudes aún</Text>
                 <TouchableOpacity
                   style={styles.btnPrimary}
                   onPress={() => setTab("create")}
@@ -545,11 +774,11 @@ export default function PlayerDashboard() {
               </View>
             )}
             {mySvcs.map((svc) => {
-              const activeOffers = (svc.ofertas || []).filter(
-                (o) => o.status === "pending" || o.status === "countered",
-              );
-              const confOff = svc.ofertas?.find(
+              const confOff = (svc.ofertas || []).find(
                 (o) => o.id === svc.acceptedOffer,
+              );
+              const pendOff = (svc.ofertas || []).filter(
+                (o) => o.status === "pending" || o.status === "countered",
               );
               return (
                 <View key={svc.id} style={styles.card}>
@@ -560,125 +789,126 @@ export default function PlayerDashboard() {
                     <Text
                       style={[
                         styles.statusBadge,
-                        { color: statusColor[svc.status] },
+                        { color: statusColor[svc.status] ?? "#888" },
                       ]}
                     >
-                      {statusLabel[svc.status]}
+                      ● {statusLabel[svc.status] ?? svc.status}
                     </Text>
                   </View>
                   <Text style={styles.svcSub}>
-                    {svc.cancha} · {svc.fecha} {svc.hora} · {svc.horas}h
+                    📅 {svc.fecha} · {svc.hora} · {svc.horas}h
                   </Text>
+                  <Text style={styles.svcSub}>📍 {svc.cancha}</Text>
                   <Text style={styles.svcTotal}>
-                    ${svc.total.toLocaleString()}
+                    ${(svc.total || 0).toLocaleString()}
                   </Text>
 
-                  {/* Ofertas */}
-                  {activeOffers.length > 0 && svc.status === "pending" && (
+                  {/* Ofertas pendientes */}
+                  {pendOff.length > 0 && (
                     <View style={styles.offersBox}>
                       <Text style={styles.offersTitle}>
-                        {activeOffers.length} oferta
-                        {activeOffers.length > 1 ? "s" : ""} recibida
-                        {activeOffers.length > 1 ? "s" : ""}
+                        {pendOff.length} oferta(s) recibida(s)
                       </Text>
-                      {svc.ofertas.map((off) => {
-                        if (off.status === "rejected") return null;
-                        const isCounter = off.status === "countered";
-                        const amount = isCounter
-                          ? off.counterAmount!
-                          : off.amount;
-                        return (
-                          <View
-                            key={off.id}
-                            style={[
-                              styles.offerCard,
-                              isCounter && styles.offerCardCounter,
-                            ]}
-                          >
-                            <View style={styles.rowBetween}>
-                              <Text style={styles.offerGkName}>
-                                {off.gkName}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.offerAmount,
-                                  { color: isCounter ? "#00aaff" : "#00ff87" },
-                                ]}
-                              >
-                                ${amount.toLocaleString()}/hr
-                              </Text>
-                            </View>
-                            {isCounter && (
-                              <Text style={styles.counterLabel}>
-                                Contraoferta · {off.counterHoras}h = $
-                                {(
-                                  amount * (off.counterHoras || 1)
-                                ).toLocaleString()}
-                              </Text>
-                            )}
-                            {(off.mensaje || off.counterMsg) && (
-                              <Text style={styles.offerMsg}>
-                                "{off.mensaje || off.counterMsg}"
-                              </Text>
-                            )}
-                            {(off.status === "pending" ||
-                              off.status === "countered") && (
-                              <View style={styles.offerBtns}>
-                                <TouchableOpacity
-                                  style={styles.btnAccept}
-                                  onPress={() => acceptOffer(svc.id, off.id)}
-                                >
-                                  <Text style={styles.btnAcceptText}>
-                                    ✓ Aceptar
-                                  </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                  style={styles.btnReject}
-                                  onPress={() => rejectOffer(svc.id, off.id)}
-                                >
-                                  <Text style={styles.btnRejectText}>
-                                    ✕ Rechazar
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
-                            )}
+                      {pendOff.map((off) => (
+                        <View
+                          key={off.id}
+                          style={[
+                            styles.offerCard,
+                            off.status === "countered" &&
+                              styles.offerCardCounter,
+                          ]}
+                        >
+                          <View style={styles.rowBetween}>
+                            <Text style={styles.offerGkName}>
+                              🧤 {off.gkName}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.offerAmount,
+                                {
+                                  color:
+                                    off.status === "countered"
+                                      ? "#00aaff"
+                                      : "#00ff87",
+                                },
+                              ]}
+                            >
+                              $
+                              {(
+                                off.counterAmount || off.amount
+                              ).toLocaleString()}
+                              /hr
+                            </Text>
                           </View>
-                        );
-                      })}
+                          {off.status === "countered" && (
+                            <Text style={styles.counterLabel}>
+                              🔄 Contraoferta · {off.counterHoras || svc.horas}h
+                              · $
+                              {(
+                                (off.counterAmount || 0) *
+                                (off.counterHoras || svc.horas)
+                              ).toLocaleString()}{" "}
+                              total
+                            </Text>
+                          )}
+                          {(off.mensaje || off.counterMsg) && (
+                            <Text style={styles.offerMsg}>
+                              "{off.counterMsg || off.mensaje}"
+                            </Text>
+                          )}
+                          <View style={styles.offerBtns}>
+                            <TouchableOpacity
+                              style={styles.btnAccept}
+                              onPress={() => acceptOffer(svc.id, off.id)}
+                            >
+                              <Text style={styles.btnAcceptText}>
+                                ✓ Aceptar
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.btnReject}
+                              onPress={() => rejectOffer(svc.id, off.id)}
+                            >
+                              <Text style={styles.btnRejectText}>
+                                ✕ Rechazar
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
                     </View>
                   )}
 
-                  {/* Confirmado / en progreso */}
+                  {/* Confirmado/En progreso */}
                   {(svc.status === "confirmed" ||
-                    svc.status === "in_progress") &&
-                    confOff && (
-                      <View style={styles.confirmedBox}>
-                        <Text style={styles.confirmedText}>
-                          {svc.status === "in_progress"
-                            ? "🟢 En progreso · "
-                            : "✓ Confirmado · "}
-                          {confOff.gkName}
+                    svc.status === "in_progress") && (
+                    <View style={styles.confirmedBox}>
+                      <Text style={styles.confirmedText}>
+                        {svc.status === "in_progress"
+                          ? "🟢 En progreso · "
+                          : "✓ Confirmado · "}
+                        {svc.confirmedGkName}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.btnChat}
+                        onPress={() =>
+                          router.push(`/chat?serviceId=${svc.id}` as any)
+                        }
+                      >
+                        <Text style={styles.btnChatText}>💬 Abrir chat</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.btnMap}
+                        onPress={() =>
+                          router.push(`/map?serviceId=${svc.id}` as any)
+                        }
+                      >
+                        <Text style={styles.btnMapText}>
+                          📍 Ver mapa en vivo
                         </Text>
-                        <TouchableOpacity
-                          style={styles.btnChat}
-                          onPress={() =>
-                            router.push(`/chat?serviceId=${svc.id}` as any)
-                          }
-                        >
-                          <Text style={styles.btnChatText}>💬 Abrir chat</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.btnMap}
-                          onPress={() =>
-                            router.push(`/map?serviceId=${svc.id}` as any)
-                          }
-                        >
-                          <Text style={styles.btnMapText}>
-                            📍 Ver mapa en vivo
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
                   {/* Completado */}
                   {svc.status === "completed" && (
@@ -709,9 +939,7 @@ export default function PlayerDashboard() {
                   {svc.status === "pending" && (
                     <TouchableOpacity
                       style={styles.btnCancel}
-                      onPress={() =>
-                        updateService(svc.id, { status: "cancelled" })
-                      }
+                      onPress={() => cancelService(svc.id)}
                     >
                       <Text style={styles.btnCancelText}>
                         Cancelar solicitud
@@ -727,6 +955,53 @@ export default function PlayerDashboard() {
     </View>
   );
 }
+
+const calS = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  box: {
+    backgroundColor: "#13131c",
+    borderRadius: 12,
+    padding: 16,
+    width: 300,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  navBtn: { color: "#00ff87", fontSize: 16, paddingHorizontal: 8 },
+  monthLabel: { color: "#f0ede8", fontWeight: "700", fontSize: 14 },
+  weekRow: { flexDirection: "row", marginBottom: 6 },
+  weekDay: {
+    flex: 1,
+    textAlign: "center",
+    color: "#555",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  grid: { flexDirection: "row", flexWrap: "wrap" },
+  cell: {
+    width: "14.28%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 4,
+  },
+  cellToday: { borderWidth: 1, borderColor: "#00ff87" },
+  cellPast: { opacity: 0.3 },
+  cellSelected: { backgroundColor: "#00ff87" },
+  cellText: { color: "#f0ede8", fontSize: 12 },
+  cellTextPast: { color: "#444" },
+  cellTextToday: { color: "#00ff87" },
+});
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0a0a0f" },
@@ -753,7 +1028,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   roleBadgeText: { color: "#00aaff", fontSize: 10, fontWeight: "700" },
-  logoutText: { color: "#555", fontSize: 12 },
+  logoutBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+    borderRadius: 4,
+  },
+  logoutText: { color: "#888", fontSize: 12 },
   tabs: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -781,7 +1063,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 4,
   },
   filterBtn: {
     backgroundColor: "#16161f",
@@ -864,6 +1146,7 @@ const styles = StyleSheet.create({
     borderColor: "#00ff87",
     borderRadius: 4,
     marginTop: 4,
+    maxHeight: 200,
   },
   dropdownItem: {
     padding: 13,
@@ -897,7 +1180,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 13,
     marginTop: 16,
-    marginBottom: 4,
   },
   estimadoLabel: { fontSize: 12, color: "#777" },
   estimadoTotal: { fontSize: 20, fontWeight: "800", color: "#00ff87" },
@@ -925,7 +1207,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     color: "#666",
     marginBottom: 8,
-    textTransform: "uppercase",
   },
   offerCard: {
     backgroundColor: "#0f0f18",
@@ -965,13 +1246,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,170,255,.25)",
     borderRadius: 6,
     padding: 10,
+    gap: 8,
   },
-  confirmedText: {
-    color: "#00aaff",
-    fontWeight: "700",
-    fontSize: 12,
-    marginBottom: 8,
-  },
+  confirmedText: { color: "#00aaff", fontWeight: "700", fontSize: 12 },
   btnChat: {
     borderWidth: 1.5,
     borderColor: "#00aaff",
@@ -980,6 +1257,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnChatText: { color: "#00aaff", fontWeight: "700", fontSize: 12 },
+  btnMap: {
+    borderWidth: 1.5,
+    borderColor: "#00ff87",
+    borderRadius: 4,
+    padding: 9,
+    alignItems: "center",
+  },
+  btnMapText: { color: "#00ff87", fontWeight: "700", fontSize: 12 },
   completedBox: {
     marginTop: 10,
     borderTopWidth: 1,
@@ -1003,19 +1288,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#ff4757",
     borderRadius: 4,
-    padding: 8,
+    padding: 10,
     alignItems: "center",
   },
   btnCancelText: { color: "#ff4757", fontSize: 12, fontWeight: "600" },
-  btnMap: {
-    borderWidth: 1.5,
-    borderColor: "#00ff87",
-    borderRadius: 4,
-    padding: 9,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  btnMapText: { color: "#00ff87", fontWeight: "700", fontSize: 12 },
   empty: { alignItems: "center", paddingVertical: 50 },
   emptyEmoji: { fontSize: 42, marginBottom: 10 },
   emptyText: { color: "#444", fontSize: 14, marginBottom: 16 },
