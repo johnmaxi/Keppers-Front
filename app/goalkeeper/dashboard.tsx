@@ -46,7 +46,13 @@ export default function GoalkeeperDashboard() {
   const available = services.filter(
     (s) =>
       s.status === "pending" &&
-      !(s.ofertas || []).find((o) => o.gkId === currentUser?.id),
+      (() => {
+        const myOffer = (s.ofertas || []).find(
+          (o) => o.gkId === currentUser?.id,
+        );
+        // Mostrar si no ha ofertado, o si su oferta fue rechazada (puede volver a ofertar)
+        return !myOffer || myOffer.status === "rejected";
+      })(),
   );
   const myOffers = services.filter((s) =>
     (s.ofertas || []).find((o) => o.gkId === currentUser?.id),
@@ -65,8 +71,11 @@ export default function GoalkeeperDashboard() {
   const sendOffer = (svcId: string) => {
     const f = gf(svcId);
     const isC = f.mode === "counter";
-    const offer: any = {
-      id: String(Date.now()),
+    const svc = services.find((s) => s.id === svcId);
+    const prev = svc?.ofertas?.find((o) => o.gkId === currentUser?.id);
+
+    const offerData: any = {
+      id: prev?.id || String(Date.now()),
       gkId: currentUser!.id,
       gkName: currentUser!.nombre,
       gkRating: currentUser!.rating || 4.7,
@@ -77,9 +86,16 @@ export default function GoalkeeperDashboard() {
       counterHoras: isC ? parseInt(f.horas) : null,
       counterMsg: isC ? f.msg : null,
     };
-    addOffer(svcId, offer);
+
+    if (prev && prev.status === "rejected") {
+      // Reusar misma oferta sobreescribiendo campos — jugador ya la rechazó, nueva oportunidad
+      updateOffer(svcId, prev.id, offerData);
+    } else {
+      addOffer(svcId, offerData);
+    }
     Alert.alert("✅", isC ? "¡Contraoferta enviada!" : "¡Oferta enviada!");
     setExpanded(null);
+    setForms((f) => ({ ...f, [svcId]: undefined as any }));
   };
 
   const startService = (svcId: string) => {
@@ -277,7 +293,9 @@ export default function GoalkeeperDashboard() {
                           </TouchableOpacity>
                         ))}
                       </View>
-                      <Text style={styles.label}>TARIFA / HR (COP)</Text>
+                      <Text style={styles.label}>
+                        VALOR TOTAL DEL SERVICIO (COP)
+                      </Text>
                       <TextInput
                         style={styles.input}
                         keyboardType="numeric"
@@ -328,18 +346,14 @@ export default function GoalkeeperDashboard() {
                         onChangeText={(v) => sf(svc.id, { msg: v })}
                       />
                       <Text style={styles.totalPreview}>
-                        Total:{" "}
+                        Tu oferta total:{" "}
                         <Text
                           style={{
                             color: isC ? "#00aaff" : "#00ff87",
                             fontWeight: "800",
                           }}
                         >
-                          $
-                          {(
-                            (parseInt(f.tarifa) || BASE) *
-                            (isC ? parseInt(f.horas) : svc.horas)
-                          ).toLocaleString()}
+                          ${(parseInt(f.tarifa) || BASE).toLocaleString()} COP
                         </Text>
                       </Text>
                       <TouchableOpacity
@@ -419,9 +433,21 @@ export default function GoalkeeperDashboard() {
                     ]}
                   >
                     $
-                    {(my?.counterAmount || my?.amount || BASE).toLocaleString()}
-                    <Text style={styles.svcPago}>/hr</Text>
+                    {(my?.counterAmount || my?.amount || BASE).toLocaleString()}{" "}
+                    COP
                   </Text>
+                  {my?.status === "rejected" && (
+                    <TouchableOpacity
+                      style={styles.btnReofert}
+                      onPress={() => {
+                        setTab("available");
+                      }}
+                    >
+                      <Text style={styles.btnReofertText}>
+                        🔄 Volver a ofertar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
@@ -442,8 +468,7 @@ export default function GoalkeeperDashboard() {
             )}
             {confirmed.map((svc) => {
               const my = svc.ofertas.find((o) => o.gkId === currentUser?.id);
-              const total =
-                (my?.counterAmount || my?.amount || BASE) * svc.horas;
+              const total = my?.counterAmount || my?.amount || BASE;
               const canStart = svc.status === "confirmed";
               const canEnd = svc.status === "in_progress";
               const isDone = svc.status === "completed";
@@ -817,6 +842,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnRateText: { color: "#ffa500", fontWeight: "700", fontSize: 12 },
+  btnReofert: {
+    marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: "#00aaff",
+    borderRadius: 4,
+    padding: 8,
+    alignItems: "center",
+  },
+  btnReofertText: { color: "#00aaff", fontSize: 12, fontWeight: "600" },
   empty: { alignItems: "center", paddingVertical: 50 },
   emptyEmoji: { fontSize: 42, marginBottom: 10 },
   emptyText: { color: "#444", fontSize: 14, marginBottom: 16 },

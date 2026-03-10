@@ -283,7 +283,7 @@ export default function PlayerDashboard() {
           text: "Confirmar",
           onPress: async () => {
             try {
-              const total = (off.counterAmount || off.amount) * svc.horas;
+              const total = off.counterAmount || off.amount;
               await updateService(svcId, {
                 status: "confirmed",
                 acceptedOffer: offerId,
@@ -836,18 +836,14 @@ export default function PlayerDashboard() {
                               $
                               {(
                                 off.counterAmount || off.amount
-                              ).toLocaleString()}
-                              /hr
+                              ).toLocaleString()}{" "}
+                              COP
                             </Text>
                           </View>
                           {off.status === "countered" && (
                             <Text style={styles.counterLabel}>
                               🔄 Contraoferta · {off.counterHoras || svc.horas}h
-                              · $
-                              {(
-                                (off.counterAmount || 0) *
-                                (off.counterHoras || svc.horas)
-                              ).toLocaleString()}{" "}
+                              · ${(off.counterAmount || 0).toLocaleString()} COP
                               total
                             </Text>
                           )}

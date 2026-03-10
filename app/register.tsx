@@ -56,7 +56,6 @@ export default function Register() {
     numCuenta: "",
     tipoCuenta: "Ahorros",
     cedula: "",
-    tarifa: "",
   });
   const up = (key: string, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -370,16 +369,6 @@ export default function Register() {
             keyboardType="numeric"
             value={form.cedula}
             onChangeText={(v) => up("cedula", v)}
-          />
-
-          <Text style={styles.label}>TARIFA POR HORA (COP)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="45000"
-            placeholderTextColor="#444"
-            keyboardType="numeric"
-            value={form.tarifa}
-            onChangeText={(v) => up("tarifa", v)}
           />
 
           <View style={styles.infoBanner}>
