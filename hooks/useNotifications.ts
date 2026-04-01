@@ -1,42 +1,44 @@
-// hooks/useNotifications.ts
-import { useEffect, useRef } from "react";
-import { useRouter } from "expo-router";
-import * as Notifications from "expo-notifications";
+// hooks/useNotifications.ts — SDK 55, silencia error en Expo Go
 import Constants from "expo-constants";
+import * as Notifications from "expo-notifications";
+import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
 import { registerPushToken } from "../services/notificationService";
 import { useAppStore } from "../store/appStore";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
-// SDK 55: NotificationBehavior requiere shouldShowBanner y shouldShowList
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert:  true,
-    shouldShowBanner: true,
-    shouldShowList:   true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   true,
-  }),
-});
+// Solo configurar handler si NO estamos en Expo Go
+// (en Expo Go SDK 55 esto lanza error repetido en consola)
+if (!isExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export function useNotifications() {
-  const router          = useRouter();
+  const router = useRouter();
   const { currentUser } = useAppStore();
-
-  // SDK 55: useRef requiere valor inicial
-  const responseListener     = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isExpoGo) return;
 
-    if (!isExpoGo) {
-      registerPushToken(currentUser.id).catch(console.error);
-    }
+    registerPushToken(currentUser.id).catch(console.error);
 
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
-        console.log("Notificación recibida:", notification.request.content.title);
+        console.log(
+          "Notificación recibida:",
+          notification.request.content.title,
+        );
       });
 
     responseListener.current =
@@ -53,7 +55,6 @@ export function useNotifications() {
       });
 
     return () => {
-      // SDK 55: se usa .remove() en la suscripción directamente
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
