@@ -2,23 +2,20 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useNotifications } from "../hooks/useNotifications";
 import { useAppStore } from "../store/appStore";
+
+// NO importar useNotifications aquí — se maneja en cada dashboard
+// para evitar el error de expo-notifications en Expo Go
 
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { currentUser, authLoading, initAuth } = useAppStore();
 
-  // Iniciar Firebase Auth observer
   useEffect(() => {
     initAuth();
   }, []);
 
-  // Inicializar notificaciones push (registra token, maneja taps)
-  useNotifications();
-
-  // Redirigir según sesión
   useEffect(() => {
     if (authLoading) return;
     const inApp = segments[0] === "player" || segments[0] === "goalkeeper";
