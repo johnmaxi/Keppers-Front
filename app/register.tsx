@@ -218,7 +218,6 @@ export default function Register() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -333,6 +332,7 @@ export default function Register() {
   const nextStep = () => {
     if (step === 1 && !validateStep1()) return;
     if (step === 2 && !validateStep2()) return;
+    setOpenDropdown(null);
     setStep((s) => s + 1);
   };
 

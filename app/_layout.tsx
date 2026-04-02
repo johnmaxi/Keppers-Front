@@ -18,16 +18,15 @@ export default function RootLayout() {
     const inApp =
       segments[0] === "player" ||
       segments[0] === "goalkeeper" ||
-      segments[0] === "profile";
+      segments[0] === "profile" ||
+      segments[0] === "admin";
     if (!currentUser && inApp) {
       router.replace("/" as any);
     } else if (currentUser && !inApp) {
       router.replace(
         currentUser.role === "player"
           ? ("/player/dashboard" as any)
-          : currentUser.role === "admin"
-            ? ("/admin/dashboard" as any)
-            : ("/goalkeeper/dashboard" as any),
+          : ("/goalkeeper/dashboard" as any),
       );
     }
   }, [currentUser, authLoading]);
@@ -55,7 +54,6 @@ export default function RootLayout() {
       <Stack.Screen name="player/dashboard" />
       <Stack.Screen name="goalkeeper/dashboard" />
       <Stack.Screen name="profile/index" />
-      <Stack.Screen name="admin/dashboard" />
       <Stack.Screen name="chat/index" />
       <Stack.Screen name="map/index" />
       <Stack.Screen name="rating/index" />
