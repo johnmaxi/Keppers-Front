@@ -331,7 +331,9 @@ export default function Register() {
 
   const nextStep = () => {
     if (step === 1 && !validateStep1()) return;
-    if (step === 2 && !validateStep2()) return;
+    // Step 2 = tallas (no validation needed, all optional)
+    // Step 3 = banco for goalkeeper (validated in nextStep before going to cedula)
+    if (step === 3 && role === "goalkeeper" && !validateStep2()) return;
     setOpenDropdown(null);
     setStep((s) => s + 1);
   };
