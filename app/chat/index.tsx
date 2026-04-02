@@ -33,7 +33,7 @@ export default function ChatScreen() {
   const [text, setText] = useState("");
   const flatRef = useRef<FlatList>(null);
 
-  const svcId = parseInt(serviceId || "0");
+  const svcId = serviceId || "";
   const svc = services.find((s) => s.id === svcId);
   const msgs = chats[svcId] || [];
 

@@ -34,7 +34,7 @@ export default function RatingScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
   const { currentUser, services, updateService } = useAppStore();
 
-  const svcId = parseInt(serviceId || "0");
+  const svcId = serviceId || "";
   const svc = services.find((s) => s.id === svcId);
   const isPlayer = currentUser?.role === "player";
 

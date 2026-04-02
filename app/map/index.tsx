@@ -18,7 +18,7 @@ export default function LiveMap() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
   const { currentUser, services } = useAppStore();
 
-  const svcId = parseInt(serviceId || "0");
+  const svcId = serviceId || "";
   const svc = services.find((s) => s.id === svcId);
   const isGK = currentUser?.role === "goalkeeper";
 
