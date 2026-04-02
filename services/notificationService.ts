@@ -1,208 +1,106 @@
 // services/notificationService.ts
-// Maneja registro de token y envío de notificaciones push via Expo
+// Las notificaciones push NO funcionan en Expo Go SDK 53+
+// Este servicio es un no-op en Expo Go y funciona en APK real
 
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import { Platform } from "react-native";
+import Constants from "expo-constants";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
-// ── Configuración global de cómo se muestran las notificaciones ──────────────
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge:  true,
-  }),
-});
+const isExpoGo = Constants.appOwnership === "expo";
 
-// ── Registrar dispositivo y guardar token en Firestore ────────────────────────
+// ── Registrar token push ──────────────────────────────────────────────────────
 export async function registerPushToken(userId: string): Promise<string | null> {
-  // Solo funciona en dispositivo físico
-  if (!Device.isDevice) {
-    console.log("Push notifications solo funcionan en dispositivo físico");
-    return null;
-  }
+  if (isExpoGo) return null;
 
-  // Pedir permiso
+  // Solo importar expo-notifications en APK real
+  const Notifications = await import("expo-notifications");
+  const Device = await import("expo-device");
+  const { Platform } = await import("react-native");
+
+  if (!Device.default.isDevice) return null;
+
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;
-
   if (existing !== "granted") {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
+  if (finalStatus !== "granted") return null;
 
-  if (finalStatus !== "granted") {
-    console.log("Permiso de notificaciones denegado");
-    return null;
-  }
-
-  // Canal de Android
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("keepers", {
-      name:       "Keepers",
+      name: "Keepers",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#00ff87",
-      sound:      "default",
+      sound: "default",
     });
   }
 
-  // Obtener token de Expo
   const token = (await Notifications.getExpoPushTokenAsync({
-    projectId: "keepersapp-6b982", // tu projectId de Firebase/Expo
+    projectId: "keeperz-app",
   })).data;
 
-  // Guardar token en Firestore para poder enviar notificaciones a este usuario
   await updateDoc(doc(db, "users", userId), { pushToken: token });
-  console.log("Push token registrado:", token);
   return token;
 }
 
-// ── Obtener token de un usuario desde Firestore ───────────────────────────────
+// ── Obtener token de usuario ──────────────────────────────────────────────────
 export async function getUserPushToken(userId: string): Promise<string | null> {
-  const snap = await getDoc(doc(db, "users", userId));
-  if (!snap.exists()) return null;
-  return snap.data().pushToken || null;
+  if (isExpoGo) return null;
+  try {
+    const snap = await getDoc(doc(db, "users", userId));
+    if (!snap.exists()) return null;
+    return snap.data().pushToken || null;
+  } catch {
+    return null;
+  }
 }
 
-// ── Enviar notificación push via Expo Push API ────────────────────────────────
+// ── Enviar notificación ───────────────────────────────────────────────────────
 export async function sendPushNotification({
   token, title, body, data = {},
 }: {
-  token: string;
-  title: string;
-  body:  string;
-  data?: Record<string, any>;
+  token: string; title: string; body: string; data?: Record<string, any>;
 }): Promise<void> {
+  if (isExpoGo || !token) return;
   await fetch("https://exp.host/--/api/v2/push/send", {
-    method:  "POST",
-    headers: {
-      "Accept":       "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      to:    token,
-      sound: "default",
-      title,
-      body,
-      data,
-      channelId: "keepers",
-    }),
+    method: "POST",
+    headers: { "Accept": "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ to: token, sound: "default", title, body, data, channelId: "keepers" }),
   });
 }
 
-// ── Notificaciones específicas de Keepers ─────────────────────────────────────
-
-// Cuando un portero envía oferta → notifica al jugador
-export async function notifyNewOffer({
-  playerToken, gkName, serviceId, tipoPartido, amount,
-}: {
-  playerToken: string;
-  gkName:      string;
-  serviceId:   string;
-  tipoPartido: string;
-  amount:      number;
-}): Promise<void> {
-  await sendPushNotification({
-    token: playerToken,
-    title: "🧤 Nueva oferta recibida",
-    body:  `${gkName} ofrece $${amount.toLocaleString()}/hr para tu partido de ${tipoPartido}`,
-    data:  { screen: "player/dashboard", tab: "svcs", serviceId },
-  });
+// ── Notificaciones específicas (todas son no-op en Expo Go) ───────────────────
+export async function notifyNewOffer(p: { playerToken: string; gkName: string; serviceId: string; tipoPartido: string; amount: number }) {
+  if (isExpoGo) return;
+  await sendPushNotification({ token: p.playerToken, title: "🧤 Nueva oferta recibida", body: `${p.gkName} ofrece $${p.amount.toLocaleString()} para tu partido de ${p.tipoPartido}`, data: { screen: "player/dashboard", serviceId: p.serviceId } });
 }
 
-// Cuando el jugador acepta oferta → notifica al portero
-export async function notifyOfferAccepted({
-  gkToken, playerName, serviceId, tipoPartido, ciudad,
-}: {
-  gkToken:     string;
-  playerName:  string;
-  serviceId:   string;
-  tipoPartido: string;
-  ciudad:      string;
-}): Promise<void> {
-  await sendPushNotification({
-    token: gkToken,
-    title: "✅ ¡Oferta aceptada!",
-    body:  `${playerName} aceptó tu oferta para ${tipoPartido} en ${ciudad}`,
-    data:  { screen: "goalkeeper/dashboard", tab: "confirmed", serviceId },
-  });
+export async function notifyOfferAccepted(p: { gkToken: string; playerName: string; serviceId: string; tipoPartido: string; ciudad: string }) {
+  if (isExpoGo) return;
+  await sendPushNotification({ token: p.gkToken, title: "✅ ¡Oferta aceptada!", body: `${p.playerName} aceptó tu oferta para ${p.tipoPartido} en ${p.ciudad}`, data: { screen: "goalkeeper/dashboard", serviceId: p.serviceId } });
 }
 
-// Cuando el portero envía contraoferta → notifica al jugador
-export async function notifyCounterOffer({
-  playerToken, gkName, serviceId, amount, horas,
-}: {
-  playerToken: string;
-  gkName:      string;
-  serviceId:   string;
-  amount:      number;
-  horas:       number;
-}): Promise<void> {
-  await sendPushNotification({
-    token: playerToken,
-    title: "🔄 Contraoferta recibida",
-    body:  `${gkName} propone $${amount.toLocaleString()}/hr por ${horas}h`,
-    data:  { screen: "player/dashboard", tab: "svcs", serviceId },
-  });
+export async function notifyCounterOffer(p: { playerToken: string; gkName: string; serviceId: string; amount: number; horas: number }) {
+  if (isExpoGo) return;
+  await sendPushNotification({ token: p.playerToken, title: "🔄 Contraoferta recibida", body: `${p.gkName} propone $${p.amount.toLocaleString()} por ${p.horas}h`, data: { screen: "player/dashboard", serviceId: p.serviceId } });
 }
 
-// Cuando el portero inicia el servicio → notifica al jugador
-export async function notifyServiceStarted({
-  playerToken, gkName, cancha,
-}: {
-  playerToken: string;
-  gkName:      string;
-  cancha:      string;
-}): Promise<void> {
-  await sendPushNotification({
-    token: playerToken,
-    title: "🟢 ¡Portero en camino!",
-    body:  `${gkName} está en camino a ${cancha}`,
-    data:  { screen: "player/dashboard" },
-  });
+export async function notifyServiceStarted(p: { playerToken: string; gkName: string; cancha: string }) {
+  if (isExpoGo) return;
+  await sendPushNotification({ token: p.playerToken, title: "🟢 ¡Portero en camino!", body: `${p.gkName} está en camino a ${p.cancha}` });
 }
 
-// Cuando el servicio se completa → notifica a ambos para calificar
-export async function notifyServiceCompleted({
-  playerToken, gkToken, gkName, playerName,
-}: {
-  playerToken: string;
-  gkToken:     string;
-  gkName:      string;
-  playerName:  string;
-}): Promise<void> {
+export async function notifyServiceCompleted(p: { playerToken: string; gkToken: string; gkName: string; playerName: string }) {
+  if (isExpoGo) return;
   await Promise.all([
-    sendPushNotification({
-      token: playerToken,
-      title: "🏁 Servicio completado",
-      body:  `¿Cómo estuvo ${gkName}? Deja tu calificación`,
-      data:  { screen: "player/dashboard", tab: "svcs" },
-    }),
-    sendPushNotification({
-      token: gkToken,
-      title: "🏁 Servicio completado",
-      body:  `¿Cómo estuvo ${playerName}? Deja tu calificación`,
-      data:  { screen: "goalkeeper/dashboard", tab: "confirmed" },
-    }),
+    sendPushNotification({ token: p.playerToken, title: "🏁 Servicio completado", body: `¿Cómo estuvo ${p.gkName}? Deja tu calificación` }),
+    sendPushNotification({ token: p.gkToken,    title: "🏁 Servicio completado", body: `¿Cómo estuvo ${p.playerName}? Deja tu calificación` }),
   ]);
 }
 
-// Nuevo mensaje de chat → notifica al otro participante  
-export async function notifyNewMessage({
-  recipientToken, senderName, text, serviceId,
-}: {
-  recipientToken: string;
-  senderName:     string;
-  text:           string;
-  serviceId:      string;
-}): Promise<void> {
-  await sendPushNotification({
-    token: recipientToken,
-    title: `💬 ${senderName}`,
-    body:  text.length > 60 ? text.slice(0, 60) + "…" : text,
-    data:  { screen: "chat/index", serviceId },
-  });
+export async function notifyNewMessage(p: { recipientToken: string; senderName: string; text: string; serviceId: string }) {
+  if (isExpoGo) return;
+  await sendPushNotification({ token: p.recipientToken, title: `💬 ${p.senderName}`, body: p.text.length > 60 ? p.text.slice(0, 60) + "…" : p.text, data: { screen: "chat/index", serviceId: p.serviceId } });
 }
