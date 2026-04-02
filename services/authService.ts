@@ -1,95 +1,164 @@
 // services/authService.ts
-// Maneja registro e inicio de sesión con Firebase Auth + Firestore
-
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  User as FirebaseUser,
+  User,
 } from "firebase/auth";
-import {
-  doc, setDoc, getDoc, serverTimestamp,
-} from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import { BASE } from "../components/constants";
 
-// ── Tipos ────────────────────────────────────────────────────────────────────
 export interface AppUser {
-  id:          string;
-  nombre:      string;
-  email:       string;
-  telefono:    string;
-  ciudad:      string;
-  role:        "player" | "goalkeeper";
-  rating:      number;
-  reviews:     number;
-  tarifa:      number;
-  banco:       string;
-  numCuenta:   string;
-  tipoCuenta:  string;
-  cedula:      string;
-  disponible:  boolean;
-  createdAt:   any;
+  id:               string;
+  nombre:           string;
+  email:            string;
+  telefono:         string;
+  ciudad:           string;
+  role:             "player" | "goalkeeper" | "admin";
+  banco:            string;
+  numCuenta:        string;
+  tipoCuenta:       string;
+  cedula:           string;
+  rating:           number;
+  reviews:          number;
+  disponible:       boolean;
+  pushToken:        string | null;
+  photoURL:         string | null;
+  cedulaURL:        string | null;
+  // Tallas portero
+  tallaGuantes?:     string;
+  tallaGuayos?:      string;
+  tallaCamisa?:      string;
+  tallaLicra?:       string;
+  tallaPantaloneta?: string;
+  // Tallas jugador
+  tallaGuayosJ?:      string;
+  tallaCamisaJ?:      string;
+  tallaLicraJ?:       string;
+  tallaPantalonetaJ?: string;
+  // Admin
+  registrationStatus?: "pending" | "approved" | "rejected";
+  registrationNote?:   string;
 }
 
-// ── Registro ─────────────────────────────────────────────────────────────────
-export async function registerUser(form: {
-  nombre: string; email: string; password: string;
-  telefono: string; ciudad: string; role: "player" | "goalkeeper";
-  banco: string; numCuenta: string; tipoCuenta: string;
-  cedula: string; tarifa: string;
-}): Promise<AppUser> {
-  // 1. Crear cuenta en Firebase Auth
+// ── Subir archivo a Firebase Storage via REST API ─────────────────────────────
+async function uploadToStorage(
+  base64: string,
+  mimeType: string,
+  path: string,
+  idToken: string,
+): Promise<string> {
+  const project = "keepersapp-6b982";
+  const encoded = encodeURIComponent(path);
+  const url     = `https://firebasestorage.googleapis.com/v0/b/${project}.appspot.com/o/${encoded}?uploadType=media`;
+
+  const binary = atob(base64);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  const res = await fetch(url, {
+    method:  "POST",
+    headers: { "Content-Type": mimeType, "Authorization": `Bearer ${idToken}` },
+    body:    bytes,
+  });
+  if (!res.ok) throw new Error("Error subiendo archivo a Storage");
+  const data = await res.json();
+  return `https://firebasestorage.googleapis.com/v0/b/${project}.appspot.com/o/${encoded}?alt=media&token=${data.downloadTokens}`;
+}
+
+// ── Registro ──────────────────────────────────────────────────────────────────
+export async function registerUser(form: any): Promise<AppUser> {
   const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
   const uid  = cred.user.uid;
 
-  // 2. Guardar perfil en Firestore colección "users"
-  const userData: AppUser = {
-    id:         uid,
-    nombre:     form.nombre,
-    email:      form.email,
-    telefono:   form.telefono,
-    ciudad:     form.ciudad,
-    role:       form.role,
-    rating:     5.0,
-    reviews:    0,
-    tarifa:     parseInt(form.tarifa) || BASE,
-    banco:      form.banco,
-    numCuenta:  form.numCuenta,
-    tipoCuenta: form.tipoCuenta,
-    cedula:     form.cedula,
-    disponible: true,
-    createdAt:  serverTimestamp(),
+  // Obtener token para Storage
+  const idToken = await cred.user.getIdToken();
+
+  let photoURL:  string | null = null;
+  let cedulaURL: string | null = null;
+
+  // Subir foto de perfil
+  if (form.photoBase64) {
+    try {
+      photoURL = await uploadToStorage(
+        form.photoBase64, "image/jpeg",
+        `profiles/${uid}.jpg`, idToken,
+      );
+    } catch (e) {
+      console.warn("No se pudo subir la foto de perfil:", e);
+    }
+  }
+
+  // Subir cédula (solo porteros)
+  if (form.role === "goalkeeper" && form.cedulaBase64) {
+    const ext  = form.cedulaFileName?.endsWith(".pdf") ? "pdf" : "jpg";
+    const mime = ext === "pdf" ? "application/pdf" : "image/jpeg";
+    try {
+      cedulaURL = await uploadToStorage(
+        form.cedulaBase64, mime,
+        `cedulas/${uid}.${ext}`, idToken,
+      );
+    } catch (e) {
+      console.warn("No se pudo subir la cédula:", e);
+    }
+  }
+
+  const user: AppUser = {
+    id:               uid,
+    nombre:           form.nombre,
+    email:            form.email,
+    telefono:         form.telefono,
+    ciudad:           form.ciudad,
+    role:             form.role,
+    banco:            form.banco || "",
+    numCuenta:        form.numCuenta || "",
+    tipoCuenta:       form.tipoCuenta || "Ahorros",
+    cedula:           form.cedula || "",
+    rating:           5,
+    reviews:          0,
+    disponible:       true,
+    pushToken:        null,
+    photoURL,
+    cedulaURL,
+    // Tallas
+    tallaGuantes:      form.tallaGuantes || "",
+    tallaGuayos:       form.role === "goalkeeper" ? form.tallaGuayos : form.tallaGuayosJ || "",
+    tallaCamisa:       form.role === "goalkeeper" ? form.tallaCamisa : form.tallaCamisaJ || "",
+    tallaLicra:        form.role === "goalkeeper" ? form.tallaLicra  : form.tallaLicraJ  || "",
+    tallaPantaloneta:  form.role === "goalkeeper" ? form.tallaPantaloneta : form.tallaPantalonetaJ || "",
+    registrationStatus: form.role === "goalkeeper" ? "pending" : "approved",
   };
 
-  await setDoc(doc(db, "users", uid), userData);
-  return userData;
+  await setDoc(doc(db, "users", uid), { ...user, createdAt: serverTimestamp() });
+  return user;
 }
 
-// ── Login ────────────────────────────────────────────────────────────────────
+// ── Login ─────────────────────────────────────────────────────────────────────
 export async function loginUser(email: string, password: string): Promise<AppUser> {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   const snap = await getDoc(doc(db, "users", cred.user.uid));
-  if (!snap.exists()) throw new Error("Perfil no encontrado");
+  if (!snap.exists()) throw new Error("Usuario no encontrado en base de datos");
   return { id: snap.id, ...snap.data() } as AppUser;
 }
 
-// ── Logout ───────────────────────────────────────────────────────────────────
+// ── Logout ────────────────────────────────────────────────────────────────────
 export async function logoutUser(): Promise<void> {
   await signOut(auth);
 }
 
-// ── Observer sesión activa ────────────────────────────────────────────────────
-export function onAuthChanged(
-  callback: (user: AppUser | null) => void
-): () => void {
-  return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+// ── Observer de auth ──────────────────────────────────────────────────────────
+export function onAuthChanged(callback: (user: AppUser | null) => void): () => void {
+  return onAuthStateChanged(auth, async (firebaseUser: User | null) => {
     if (!firebaseUser) { callback(null); return; }
-    const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-    if (snap.exists()) {
-      callback({ id: snap.id, ...snap.data() } as AppUser);
-    } else {
+    try {
+      const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+      if (snap.exists()) {
+        callback({ id: snap.id, ...snap.data() } as AppUser);
+      } else {
+        callback(null);
+      }
+    } catch {
       callback(null);
     }
   });

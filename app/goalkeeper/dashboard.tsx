@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,12 +35,7 @@ export default function GoalkeeperDashboard() {
   const [forms, setForms] = useState<Record<string, any>>({});
 
   const gf = (id: string) =>
-    forms[id] || {
-      msg: "",
-      tarifa: String(currentUser?.tarifa || BASE),
-      horas: 2,
-      mode: "offer",
-    };
+    forms[id] || { msg: "", tarifa: String(BASE), horas: 2, mode: "offer" };
   const sf = (id: string, patch: any) =>
     setForms((f) => ({ ...f, [id]: { ...gf(id), ...patch } }));
 
@@ -207,8 +203,20 @@ export default function GoalkeeperDashboard() {
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>🧤 Portero</Text>
           </View>
-          <TouchableOpacity onPress={handleLogout}>
-            <Text style={styles.logoutText}>Salir</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/profile/index" as any)}
+            style={styles.profileBtn}
+          >
+            {currentUser?.photoURL ? (
+              <Image
+                source={{ uri: currentUser.photoURL }}
+                style={styles.profileAvatar}
+              />
+            ) : (
+              <Text style={styles.profileInitial}>
+                {currentUser?.nombre?.charAt(0) || "?"}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -684,6 +692,17 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: { color: "#00ff87", fontSize: 10, fontWeight: "700" },
   logoutText: { color: "#555", fontSize: 12 },
+  profileBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#00ff87",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  profileAvatar: { width: 32, height: 32, borderRadius: 16 },
+  profileInitial: { color: "#0a0a0f", fontWeight: "800", fontSize: 14 },
   statsRow: {
     flexDirection: "row",
     gap: 10,

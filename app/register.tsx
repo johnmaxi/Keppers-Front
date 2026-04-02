@@ -1,17 +1,20 @@
-// app/register.tsx — Sprint 1: bancos scroll, validación teléfono/cuenta, términos
+// app/register.tsx — Sprint 2: foto perfil, cédula, tallas
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useAppStore } from "../store/appStore";
 
@@ -29,7 +32,6 @@ const CIUDADES = [
   "Manizales",
   "Villavicencio",
 ];
-
 const BANCOS = [
   "Bancolombia",
   "Davivienda",
@@ -47,16 +49,12 @@ const BANCOS = [
   "Bancamía",
   "Otro",
 ];
-
 const TIPOS_CUENTA = ["Ahorros", "Corriente", "Nequi", "Daviplata"];
 
-// Validate Colombian phone: 10 digits starting with 3
 function validarTelefono(t: string) {
-  const clean = t.replace(/\s/g, "");
-  return /^3\d{9}$/.test(clean);
+  return /^3\d{9}$/.test(t.replace(/\s/g, ""));
 }
 
-// ── Dropdown genérico ──────────────────────────────────────────────────────────
 function Dropdown({
   label,
   value,
@@ -113,7 +111,6 @@ function Dropdown({
   );
 }
 
-// ── Modal Términos y Condiciones ───────────────────────────────────────────────
 function TerminosModal({
   visible,
   onClose,
@@ -127,9 +124,9 @@ function TerminosModal({
         <View style={termS.box}>
           <Text style={termS.title}>Términos y Condiciones</Text>
           <ScrollView style={termS.body}>
-            <Text style={termS.text}>
-              {`KEEPERZ — TÉRMINOS Y CONDICIONES DE USO\n\nÚltima actualización: 2026\n\n1. ACEPTACIÓN\nAl registrarse en Keeperz, el usuario acepta estos términos en su totalidad.\n\n2. DESCRIPCIÓN DEL SERVICIO\nKeeperz es una plataforma de intermediación que conecta jugadores de fútbol con porteros disponibles en Colombia.\n\n3. COMISIONES Y PAGOS\n• La plataforma retiene el 15% del valor del servicio como comisión.\n• Si el portero cancela un servicio confirmado, se le descuenta el 15% del valor total.\n• Si el jugador cancela un servicio confirmado, se descuenta el 15% del total: 10% para la app y 5% para el portero.\n• Los pagos se procesan a través de MercadoPago.\n\n4. OBLIGACIONES DEL PORTERO\n• Mantener información actualizada y verídica.\n• Cédula de ciudadanía vigente para verificación.\n• Presentarse puntualmente a los servicios contratados.\n• Comportamiento profesional y respetuoso.\n\n5. OBLIGACIONES DEL JUGADOR\n• Información verídica en el registro.\n• Pago oportuno del servicio contratado.\n• Buen trato hacia el portero.\n\n6. CANCELACIONES\n• Las cancelaciones deben realizarse con al menos 1 hora de anticipación.\n• Las cancelaciones generan las penalidades descritas en la sección 3.\n\n7. CALIFICACIONES\n• El sistema de calificaciones es vinculante.\n• Calificaciones falsas o manipuladas conllevan suspensión de la cuenta.\n\n8. PRIVACIDAD\n• Los datos personales se tratan conforme a la Ley 1581 de 2012 (Habeas Data Colombia).\n• No se comparten datos con terceros sin consentimiento expreso.\n\n9. RESPONSABILIDAD\n• Keeperz actúa como intermediario. No es responsable de incidentes durante el servicio.\n• Los usuarios son responsables de su conducta y acuerdos.\n\n10. MODIFICACIONES\n• Keeperz puede modificar estos términos con previo aviso de 7 días.\n\nPara dudas: soporte@keeperz.app`}
-            </Text>
+            <Text
+              style={termS.text}
+            >{`KEEPERZ — TÉRMINOS Y CONDICIONES\n\n1. ACEPTACIÓN\nAl registrarse en Keeperz, el usuario acepta estos términos.\n\n2. SERVICIO\nKeeperz conecta jugadores con porteros en Colombia.\n\n3. COMISIONES\n• 15% de comisión por servicio completado.\n• Portero cancela: descuento del 15% al portero.\n• Jugador cancela: 15% total; 10% app, 5% portero.\n\n4. PORTEROS\n• Cédula vigente requerida para verificación.\n• Presentarse puntualmente al servicio.\n• Comportamiento profesional.\n\n5. JUGADORES\n• Información verídica.\n• Pago oportuno.\n• Buen trato al portero.\n\n6. CANCELACIONES\n• Mínimo 1 hora de anticipación.\n• Se aplican penalidades según sección 3.\n\n7. PRIVACIDAD\n• Datos protegidos bajo Ley 1581 de 2012.\n• No se comparten sin consentimiento.\n\n8. RESPONSABILIDAD\nKeeperz es intermediario y no responde por incidentes durante el servicio.\n\nContacto: soporte@keeperz.app`}</Text>
           </ScrollView>
           <TouchableOpacity style={termS.btn} onPress={onClose}>
             <Text style={termS.btnText}>Entendido</Text>
@@ -140,14 +137,39 @@ function TerminosModal({
   );
 }
 
-// ── Registro principal ─────────────────────────────────────────────────────────
+// ── Talla input ───────────────────────────────────────────────────────────────
+function TallaInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <View style={styles.tallaItem}>
+      <Text style={styles.tallaLabel}>{label}</Text>
+      <TextInput
+        style={styles.tallaInput}
+        placeholder="Ej: M, 42"
+        placeholderTextColor="#444"
+        maxLength={5}
+        autoCapitalize="characters"
+        value={value}
+        onChangeText={onChange}
+      />
+    </View>
+  );
+}
+
 export default function Register() {
   const router = useRouter();
   const { register } = useAppStore();
 
   const [role, setRole] = useState<"player" | "goalkeeper">("player");
   const [step, setStep] = useState(1);
-  const totalSteps = role === "goalkeeper" ? 3 : 2;
+  const totalSteps = role === "goalkeeper" ? 4 : 3;
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const toggleDrop = (key: string) =>
@@ -156,6 +178,10 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [termosOk, setTermosOk] = useState(false);
   const [termModal, setTermModal] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoB64, setPhotoB64] = useState<string | null>(null);
+  const [cedulaName, setCedulaName] = useState<string | null>(null);
+  const [cedulaB64, setCedulaB64] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     nombre: "",
@@ -167,23 +193,105 @@ export default function Register() {
     numCuenta: "",
     tipoCuenta: "Ahorros",
     cedula: "",
+    // Tallas portero
+    tallaGuantes: "",
+    tallaGuayos: "",
+    tallaCamisa: "",
+    tallaLicra: "",
+    tallaPantaloneta: "",
+    // Tallas jugador
+    tallaGuayosJ: "",
+    tallaCamisaJ: "",
+    tallaLicraJ: "",
+    tallaPantalonetaJ: "",
   });
   const up = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  // ── Validaciones por paso ────────────────────────────────────────────────────
+  // ── Foto de perfil ────────────────────────────────────────────────────────
+  const pickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permiso requerido",
+        "Necesitamos acceso a tu galería para seleccionar la foto.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+      setPhotoB64(result.assets[0].base64 || null);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso requerido", "Necesitamos acceso a tu cámara.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+      setPhotoB64(result.assets[0].base64 || null);
+    }
+  };
+
+  const showPhotoOptions = () => {
+    Alert.alert("Foto de perfil", "¿Cómo quieres agregar tu foto?", [
+      { text: "Cámara", onPress: takePhoto },
+      { text: "Galería", onPress: pickPhoto },
+      { text: "Cancelar", style: "cancel" },
+    ]);
+  };
+
+  // ── Adjuntar cédula ───────────────────────────────────────────────────────
+  const pickCedula = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setCedulaName(asset.name);
+        // Leer como base64
+        const { readAsStringAsync } = await import("expo-file-system");
+        const b64 = await readAsStringAsync(asset.uri, {
+          encoding: "base64" as any,
+        });
+        setCedulaB64(b64);
+      }
+    } catch {
+      Alert.alert("Error", "No se pudo adjuntar el archivo");
+    }
+  };
+
+  // ── Validaciones ──────────────────────────────────────────────────────────
   const validateStep1 = () => {
     if (!form.nombre.trim()) {
-      Alert.alert("Error", "Ingresa tu nombre completo");
+      Alert.alert("Error", "Ingresa tu nombre");
       return false;
     }
-    if (!form.email.trim() || !form.email.includes("@")) {
+    if (!form.email.includes("@")) {
       Alert.alert("Error", "Correo inválido");
       return false;
     }
     if (!validarTelefono(form.telefono)) {
       Alert.alert(
         "Error",
-        "Teléfono inválido. Debe ser un celular colombiano de 10 dígitos empezando por 3 (ej. 3001234567)",
+        "Teléfono inválido. Debe ser celular colombiano de 10 dígitos (ej: 3001234567)",
       );
       return false;
     }
@@ -192,7 +300,7 @@ export default function Register() {
       return false;
     }
     if (form.password.length < 6) {
-      Alert.alert("Error", "La contraseña debe tener al menos 6 caracteres");
+      Alert.alert("Error", "Contraseña mínimo 6 caracteres");
       return false;
     }
     if (!termosOk) {
@@ -212,14 +320,11 @@ export default function Register() {
       return false;
     }
     if (form.numCuenta.length > 15) {
-      Alert.alert(
-        "Error",
-        "El número de cuenta no puede tener más de 15 dígitos",
-      );
+      Alert.alert("Error", "Máximo 15 dígitos");
       return false;
     }
     if (!/^\d+$/.test(form.numCuenta)) {
-      Alert.alert("Error", "El número de cuenta solo puede contener dígitos");
+      Alert.alert("Error", "Solo dígitos en número de cuenta");
       return false;
     }
     return true;
@@ -227,7 +332,7 @@ export default function Register() {
 
   const nextStep = () => {
     if (step === 1 && !validateStep1()) return;
-    if (step === 2 && role === "goalkeeper" && !validateStep2()) return;
+    if (step === 2 && !validateStep2()) return;
     setStep((s) => s + 1);
   };
 
@@ -235,13 +340,20 @@ export default function Register() {
     if (step === 2 && role === "player" && !validateStep2()) return;
     setLoading(true);
     try {
-      await register({ ...form, role });
+      await register({
+        ...form,
+        role,
+        photoBase64: photoB64,
+        cedulaBase64: cedulaB64,
+        cedulaFileName: cedulaName,
+      });
     } catch (e: any) {
-      const msg =
+      Alert.alert(
+        "Error",
         e?.code === "auth/email-already-in-use"
           ? "Este correo ya está registrado"
-          : e?.message || "Error al crear la cuenta";
-      Alert.alert("Error", msg);
+          : e?.message || "Error al crear cuenta",
+      );
     } finally {
       setLoading(false);
     }
@@ -255,7 +367,6 @@ export default function Register() {
       <StatusBar style="light" />
       <TerminosModal visible={termModal} onClose={() => setTermModal(false)} />
 
-      {/* Logo */}
       <View style={styles.logoRow}>
         <View style={styles.logoIcon}>
           <Text style={styles.logoEmoji}>🧤</Text>
@@ -265,7 +376,6 @@ export default function Register() {
         </Text>
       </View>
 
-      {/* Selector rol */}
       {step === 1 && (
         <View style={styles.roleRow}>
           {(["player", "goalkeeper"] as const).map((r) => (
@@ -296,7 +406,6 @@ export default function Register() {
       <Text style={styles.stepLabel}>
         Paso {step} de {totalSteps}
       </Text>
-
       <View style={styles.progressBar}>
         {Array.from({ length: totalSteps }).map((_, i) => (
           <View
@@ -306,9 +415,34 @@ export default function Register() {
         ))}
       </View>
 
-      {/* ── PASO 1 — Datos personales ── */}
+      {/* ── PASO 1 — Datos personales + foto ── */}
       {step === 1 && (
         <View style={styles.form}>
+          {/* Foto de perfil */}
+          <Text style={styles.label}>FOTO DE PERFIL</Text>
+          <View style={styles.photoRow}>
+            <TouchableOpacity
+              style={styles.photoCircle}
+              onPress={showPhotoOptions}
+            >
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoImg} />
+              ) : (
+                <Text style={styles.photoPlaceholder}>
+                  📷{"\n"}Agregar{"\n"}foto
+                </Text>
+              )}
+            </TouchableOpacity>
+            <View style={{ flex: 1, gap: 8 }}>
+              <TouchableOpacity style={styles.btnPhotoOpt} onPress={takePhoto}>
+                <Text style={styles.btnPhotoOptText}>📸 Tomar foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnPhotoOpt} onPress={pickPhoto}>
+                <Text style={styles.btnPhotoOptText}>🖼️ Galería</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <Text style={styles.label}>NOMBRE COMPLETO</Text>
           <TextInput
             style={styles.input}
@@ -364,7 +498,6 @@ export default function Register() {
             onChangeText={(v) => up("password", v)}
           />
 
-          {/* Términos y condiciones */}
           <View style={styles.termRow}>
             <TouchableOpacity
               style={[styles.checkbox, termosOk && styles.checkboxActive]}
@@ -376,8 +509,7 @@ export default function Register() {
               Acepto los{" "}
               <Text style={styles.termLink} onPress={() => setTermModal(true)}>
                 Términos y Condiciones
-              </Text>{" "}
-              de Keeperz
+              </Text>
             </Text>
           </View>
 
@@ -387,8 +519,92 @@ export default function Register() {
         </View>
       )}
 
-      {/* ── PASO 2 — Cuenta bancaria ── */}
+      {/* ── PASO 2 — Tallas ── */}
       {step === 2 && (
+        <View style={styles.form}>
+          <Text style={styles.sectionHeader}>
+            {role === "goalkeeper"
+              ? "🧤 Tallas del portero"
+              : "⚽ Tallas del jugador"}
+          </Text>
+          <Text style={styles.sectionHint}>
+            Máximo 5 caracteres por talla (ej: S, M, L, XL, 40, 42)
+          </Text>
+
+          <View style={styles.tallasGrid}>
+            {role === "goalkeeper" ? (
+              <>
+                <TallaInput
+                  label="Guantes"
+                  value={form.tallaGuantes}
+                  onChange={(v) => up("tallaGuantes", v)}
+                />
+                <TallaInput
+                  label="Guayos"
+                  value={form.tallaGuayos}
+                  onChange={(v) => up("tallaGuayos", v)}
+                />
+                <TallaInput
+                  label="Camisa"
+                  value={form.tallaCamisa}
+                  onChange={(v) => up("tallaCamisa", v)}
+                />
+                <TallaInput
+                  label="Licra"
+                  value={form.tallaLicra}
+                  onChange={(v) => up("tallaLicra", v)}
+                />
+                <TallaInput
+                  label="Pantaloneta"
+                  value={form.tallaPantaloneta}
+                  onChange={(v) => up("tallaPantaloneta", v)}
+                />
+              </>
+            ) : (
+              <>
+                <TallaInput
+                  label="Guayos"
+                  value={form.tallaGuayosJ}
+                  onChange={(v) => up("tallaGuayosJ", v)}
+                />
+                <TallaInput
+                  label="Camisa"
+                  value={form.tallaCamisaJ}
+                  onChange={(v) => up("tallaCamisaJ", v)}
+                />
+                <TallaInput
+                  label="Licra"
+                  value={form.tallaLicraJ}
+                  onChange={(v) => up("tallaLicraJ", v)}
+                />
+                <TallaInput
+                  label="Pantaloneta"
+                  value={form.tallaPantalonetaJ}
+                  onChange={(v) => up("tallaPantalonetaJ", v)}
+                />
+              </>
+            )}
+          </View>
+
+          <View style={styles.rowBtns}>
+            <TouchableOpacity
+              style={styles.btnOutline}
+              onPress={() => setStep(1)}
+            >
+              <Text style={styles.btnOutlineText}>← Atrás</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.btnPrimary, { flex: 1 }]}
+              onPress={nextStep}
+            >
+              <Text style={styles.btnPrimaryText}>Continuar →</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ── PASO 3 — Cuenta bancaria ── */}
+      {step === 3 && (
         <View style={styles.form}>
           <Dropdown
             label="BANCO"
@@ -433,7 +649,7 @@ export default function Register() {
           <View style={styles.rowBtns}>
             <TouchableOpacity
               style={styles.btnOutline}
-              onPress={() => setStep(1)}
+              onPress={() => setStep(2)}
             >
               <Text style={styles.btnOutlineText}>← Atrás</Text>
             </TouchableOpacity>
@@ -465,8 +681,8 @@ export default function Register() {
         </View>
       )}
 
-      {/* ── PASO 3 — Solo portero: cédula ── */}
-      {step === 3 && role === "goalkeeper" && (
+      {/* ── PASO 4 — Solo portero: cédula ── */}
+      {step === 4 && role === "goalkeeper" && (
         <View style={styles.form}>
           <Text style={styles.label}>CÉDULA DE CIUDADANÍA</Text>
           <TextInput
@@ -479,6 +695,15 @@ export default function Register() {
             onChangeText={(v) => up("cedula", v.replace(/\D/g, ""))}
           />
 
+          <Text style={styles.label}>DOCUMENTO / FOTO DE CÉDULA</Text>
+          <TouchableOpacity style={styles.uploadBtn} onPress={pickCedula}>
+            <Text style={styles.uploadIcon}>📎</Text>
+            <Text style={styles.uploadText}>
+              {cedulaName || "Adjuntar cédula (PDF o imagen)"}
+            </Text>
+          </TouchableOpacity>
+          {cedulaName && <Text style={styles.uploadDone}>✅ {cedulaName}</Text>}
+
           <View style={styles.infoBanner}>
             <Text style={styles.infoBannerText}>
               🔒 Tu cédula será verificada por el administrador en 24h.{"\n"}
@@ -489,7 +714,7 @@ export default function Register() {
           <View style={styles.rowBtns}>
             <TouchableOpacity
               style={styles.btnOutline}
-              onPress={() => setStep(2)}
+              onPress={() => setStep(3)}
             >
               <Text style={styles.btnOutlineText}>← Atrás</Text>
             </TouchableOpacity>
@@ -605,6 +830,40 @@ const styles = StyleSheet.create({
   },
   progressActive: { backgroundColor: "#00ff87" },
   form: { width: "100%" },
+  photoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 8,
+  },
+  photoCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#16161f",
+    borderWidth: 2,
+    borderColor: "#2a2a35",
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  photoImg: { width: 90, height: 90, borderRadius: 45 },
+  photoPlaceholder: {
+    color: "#444",
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  btnPhotoOpt: {
+    backgroundColor: "#16161f",
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+    borderRadius: 6,
+    padding: 10,
+    alignItems: "center",
+  },
+  btnPhotoOptText: { color: "#888", fontSize: 12 },
   label: {
     fontSize: 10,
     fontWeight: "700",
@@ -632,7 +891,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 0,
   },
   selectBtnOpen: { borderColor: "#00ff87" },
   selectVal: { color: "#f0ede8", fontSize: 14 },
@@ -652,6 +910,38 @@ const styles = StyleSheet.create({
   },
   dropdownText: { color: "#f0ede8", fontSize: 14 },
   dropdownActive: { color: "#00ff87", fontWeight: "700" },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#f0ede8",
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  sectionHint: { fontSize: 11, color: "#555", marginBottom: 16 },
+  tallasGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tallaItem: {
+    width: "47%",
+    backgroundColor: "#16161f",
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+  },
+  tallaLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#777",
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  tallaInput: {
+    color: "#f0ede8",
+    fontSize: 16,
+    fontWeight: "700",
+    borderBottomWidth: 1,
+    borderBottomColor: "#2a2a35",
+    paddingBottom: 4,
+  },
   termRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -676,6 +966,35 @@ const styles = StyleSheet.create({
   checkmark: { color: "#0a0a0f", fontWeight: "800", fontSize: 13 },
   termText: { flex: 1, color: "#888", fontSize: 12, lineHeight: 18 },
   termLink: { color: "#00ff87", fontWeight: "700" },
+  uploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#16161f",
+    borderWidth: 1.5,
+    borderColor: "#2a2a35",
+    borderStyle: "dashed",
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 4,
+  },
+  uploadIcon: { fontSize: 20 },
+  uploadText: { color: "#888", fontSize: 13, flex: 1 },
+  uploadDone: { fontSize: 11, color: "#00ff87", marginTop: 6 },
+  infoBanner: {
+    backgroundColor: "rgba(0,255,135,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(0,255,135,0.2)",
+    borderRadius: 6,
+    padding: 12,
+    marginTop: 16,
+  },
+  infoBannerText: {
+    color: "#00ff87",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
   btnPrimary: {
     backgroundColor: "#00ff87",
     paddingVertical: 14,
@@ -696,20 +1015,6 @@ const styles = StyleSheet.create({
   },
   btnOutlineText: { color: "#00ff87", fontWeight: "600", fontSize: 14 },
   rowBtns: { flexDirection: "row", gap: 10, alignItems: "center" },
-  infoBanner: {
-    backgroundColor: "rgba(0,255,135,0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(0,255,135,0.2)",
-    borderRadius: 6,
-    padding: 12,
-    marginTop: 16,
-  },
-  infoBannerText: {
-    color: "#00ff87",
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 18,
-  },
   loginLink: { marginTop: 24 },
   loginLinkText: { fontSize: 12, color: "#444" },
 });

@@ -3,13 +3,14 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import {
   BASE,
@@ -519,8 +520,20 @@ export default function PlayerDashboard() {
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>⚽ Jugador</Text>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Salir</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/profile/index" as any)}
+            style={styles.profileBtn}
+          >
+            {currentUser?.photoURL ? (
+              <Image
+                source={{ uri: currentUser.photoURL }}
+                style={styles.profileAvatar}
+              />
+            ) : (
+              <Text style={styles.profileInitial}>
+                {currentUser?.nombre?.charAt(0) || "?"}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -1159,14 +1172,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   roleBadgeText: { color: "#00aaff", fontSize: 10, fontWeight: "700" },
-  logoutBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "#2a2a35",
-    borderRadius: 4,
+  profileBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#00ff87",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  logoutText: { color: "#888", fontSize: 12 },
+  profileAvatar: { width: 32, height: 32, borderRadius: 16 },
+  profileInitial: { color: "#0a0a0f", fontWeight: "800", fontSize: 14 },
   tabs: {
     flexDirection: "row",
     borderBottomWidth: 1,
