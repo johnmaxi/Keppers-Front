@@ -337,7 +337,8 @@ export default function Register() {
   };
 
   const finish = async () => {
-    if (step === 2 && role === "player" && !validateStep2()) return;
+    if (role === "player" && !validateStep2()) return;
+    if (role === "goalkeeper" && step === 3 && !validateStep2()) return;
     setLoading(true);
     try {
       await register({
