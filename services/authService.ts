@@ -49,9 +49,9 @@ async function uploadToStorage(
   path: string,
   idToken: string,
 ): Promise<string> {
-  const project = "keepersapp-6b982";
+  const bucket  = "keepersapp-6b982.firebasestorage.app";
   const encoded = encodeURIComponent(path);
-  const url     = `https://firebasestorage.googleapis.com/v0/b/${project}.appspot.com/o/${encoded}?uploadType=media`;
+  const url     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encoded}?uploadType=media`;
 
   const binary = atob(base64);
   const bytes  = new Uint8Array(binary.length);
@@ -62,9 +62,12 @@ async function uploadToStorage(
     headers: { "Content-Type": mimeType, "Authorization": `Bearer ${idToken}` },
     body:    bytes,
   });
-  if (!res.ok) throw new Error("Error subiendo archivo a Storage");
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Storage error ${res.status}: ${errText}`);
+  }
   const data = await res.json();
-  return `https://firebasestorage.googleapis.com/v0/b/${project}.appspot.com/o/${encoded}?alt=media&token=${data.downloadTokens}`;
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encoded}?alt=media&token=${data.downloadTokens}`;
 }
 
 // ── Registro ──────────────────────────────────────────────────────────────────

@@ -105,10 +105,10 @@ export default function Profile() {
     try {
       const { auth } = await import("../../lib/firebase");
       const idToken = await auth.currentUser!.getIdToken();
-      const project = "keepersapp-6b982";
+      const bucket = "keepersapp-6b982.firebasestorage.app";
       const path = `profiles/${currentUser.id}.jpg`;
       const encoded = encodeURIComponent(path);
-      const url = `https://firebasestorage.googleapis.com/v0/b/${project}.appspot.com/o/${encoded}?uploadType=media`;
+      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encoded}?uploadType=media`;
 
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
@@ -124,7 +124,7 @@ export default function Profile() {
       });
       if (!res.ok) throw new Error("Error subiendo foto");
       const data = await res.json();
-      const photoURL = `https://firebasestorage.googleapis.com/v0/b/${project}.appspot.com/o/${encoded}?alt=media&token=${data.downloadTokens}`;
+      const photoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encoded}?alt=media&token=${data.downloadTokens}`;
 
       await updateDoc(doc(db, "users", currentUser.id), { photoURL });
       Alert.alert("✅", "Foto actualizada correctamente");
