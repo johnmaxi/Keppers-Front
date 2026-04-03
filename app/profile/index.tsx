@@ -5,15 +5,15 @@ import { StatusBar } from "expo-status-bar";
 import { doc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { db } from "../../lib/firebase";
 import { useAppStore } from "../../store/appStore";
@@ -154,8 +154,8 @@ export default function Profile() {
               {
                 text: "Salir",
                 style: "destructive",
-                onPress: () => {
-                  logout();
+                onPress: async () => {
+                  await logout();
                   router.replace("/" as any);
                 },
               },
