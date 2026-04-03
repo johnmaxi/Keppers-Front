@@ -127,7 +127,21 @@ export default function Profile() {
       const photoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encoded}?alt=media&token=${data.downloadTokens}`;
 
       await updateDoc(doc(db, "users", currentUser.id), { photoURL });
-      Alert.alert("✅", "Foto actualizada correctamente");
+      // Reload user in store
+      const { useAppStore } = await import("../../store/appStore");
+      const snap = await import("../../lib/firebase").then(({ db }) =>
+        import("firebase/firestore").then(({ doc: d, getDoc }) =>
+          getDoc(d(db, "users", currentUser.id)),
+        ),
+      );
+      if (snap.exists()) {
+        useAppStore.getState().currentUser &&
+          Object.assign(useAppStore.getState().currentUser!, snap.data());
+      }
+      Alert.alert(
+        "✅",
+        "Foto actualizada. Reinicia la app para verla en el header.",
+      );
     } catch {
       Alert.alert("Error", "No se pudo actualizar la foto");
     } finally {
@@ -143,7 +157,16 @@ export default function Profile() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() =>
+            router.replace(
+              currentUser?.role === "player"
+                ? ("/player/dashboard" as any)
+                : ("/goalkeeper/dashboard" as any),
+            )
+          }
+          style={styles.backBtn}
+        >
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mi Perfil</Text>
