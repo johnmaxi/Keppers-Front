@@ -520,6 +520,9 @@ export default function PlayerDashboard() {
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>⚽ Jugador</Text>
           </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Salir</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile/index" as any)}
             style={styles.profileBtn}
@@ -1172,6 +1175,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   roleBadgeText: { color: "#00aaff", fontSize: 10, fontWeight: "700" },
+  logoutBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+    borderRadius: 4,
+  },
+  logoutText: { color: "#888", fontSize: 11 },
   profileBtn: {
     width: 32,
     height: 32,

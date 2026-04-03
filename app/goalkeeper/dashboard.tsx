@@ -203,6 +203,9 @@ export default function GoalkeeperDashboard() {
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>🧤 Portero</Text>
           </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Salir</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile/index" as any)}
             style={styles.profileBtn}
@@ -926,6 +929,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   btnCancelText: { color: "#ff4757", fontSize: 12, fontWeight: "600" },
+  logoutBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+    borderRadius: 4,
+  },
   empty: { alignItems: "center", paddingVertical: 50 },
   emptyEmoji: { fontSize: 42, marginBottom: 10 },
   emptyText: { color: "#444", fontSize: 14, marginBottom: 16 },
