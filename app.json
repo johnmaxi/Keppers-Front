@@ -21,7 +21,7 @@
       "versionCode": 1,
       "config": {
         "googleMaps": {
-          "apiKey": "TU_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
         }
       },
       "permissions": [
@@ -37,7 +37,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.keepers.app",
       "config": {
-        "googleMapsApiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
+        "googleMapsApiKey": "TU_GOOGLE_MAPS_API_KEY"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el seguimiento del portero.",
