@@ -84,7 +84,9 @@ export default function AdminDashboard() {
   const approve = async (user: PendingUser) => {
     setActing(true);
     try {
-      await updateDoc(doc(db, "users", user.id), {
+      console.log("Aprobando usuario:", user.id);
+      const ref = doc(db, "users", user.id);
+      await updateDoc(ref, {
         registrationStatus: "approved",
         registrationNote: "",
         disponible: true,
@@ -92,7 +94,12 @@ export default function AdminDashboard() {
       Alert.alert("✅", `${user.nombre} aprobado`);
       setSelected(null);
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      console.error("Error aprobando:", JSON.stringify(e));
+      Alert.alert(
+        "Error al aprobar",
+        `Código: ${e?.code}
+Mensaje: ${e?.message}`,
+      );
     } finally {
       setActing(false);
     }
@@ -105,7 +112,9 @@ export default function AdminDashboard() {
     }
     setActing(true);
     try {
-      await updateDoc(doc(db, "users", user.id), {
+      console.log("Rechazando usuario:", user.id);
+      const ref = doc(db, "users", user.id);
+      await updateDoc(ref, {
         registrationStatus: "rejected",
         registrationNote: note.trim(),
         disponible: false,
@@ -114,7 +123,12 @@ export default function AdminDashboard() {
       setSelected(null);
       setNote("");
     } catch (e: any) {
-      Alert.alert("Error", e.message);
+      console.error("Error rechazando:", JSON.stringify(e));
+      Alert.alert(
+        "Error al rechazar",
+        `Código: ${e?.code}
+Mensaje: ${e?.message}`,
+      );
     } finally {
       setActing(false);
     }
