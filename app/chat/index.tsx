@@ -1,92 +1,158 @@
+// app/chat/index.tsx — Chat real con Firebase
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+} from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { db } from "../../lib/firebase";
 import { useAppStore } from "../../store/appStore";
 
-const AUTO_REPLIES = [
-  "¡Ya voy en camino! 🧤",
-  "¿A qué hora exactamente?",
-  "Unos 8 minutos llego.",
-  "¿Necesito traer algo?",
-  "Listo, confirmo 👍",
-  "¿Cuántos jugadores van?",
-  "Entendido, ahí estaré.",
-  "¡Buena suerte en el partido!",
-  "Ya estoy en la cancha.",
-  "¿Cómo quieren el calentamiento?",
-];
+interface Message {
+  id: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  createdAt: any;
+}
 
-export default function ChatScreen() {
-  const router = useRouter();
+export default function Chat() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
-  const { currentUser, services, chats, addMessage } = useAppStore();
+  const router = useRouter();
+  const { currentUser, services } = useAppStore();
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
-  const flatRef = useRef<FlatList>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [svcInfo, setSvcInfo] = useState<any>(null);
+  const listRef = useRef<FlatList>(null);
 
-  const svcId = serviceId || "";
-  const svc = services.find((s) => s.id === svcId);
-  const msgs = chats[svcId] || [];
-
-  const isPlayer = currentUser?.role === "player";
-  const otherName = isPlayer ? svc?.confirmedGkName : svc?.playerName;
-  const active = svc?.status === "confirmed" || svc?.status === "in_progress";
+  const svc = services.find((s) => s.id === serviceId);
 
   useEffect(() => {
-    if (msgs.length > 0) {
-      setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [msgs.length]);
+    if (!serviceId) return;
 
-  const send = () => {
-    if (!text.trim() || !active) return;
-    const msg = {
-      id: Date.now(),
-      senderId: currentUser!.id,
-      senderName: currentUser!.nombre,
-      text: text.trim(),
-      ts: new Date().toLocaleTimeString("es-CO", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-    addMessage(svcId, msg);
+    // Cargar info del servicio
+    getDoc(doc(db, "services", serviceId)).then((snap) => {
+      if (snap.exists()) setSvcInfo(snap.data());
+    });
+
+    // Escuchar mensajes en tiempo real
+    const q = query(
+      collection(db, "chats", serviceId, "messages"),
+      orderBy("createdAt", "asc"),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const msgs = snap.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as Message,
+        );
+        setMessages(msgs);
+        setLoading(false);
+        // Scroll al final
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      },
+      (err) => {
+        console.error("Chat error:", err);
+        setLoading(false);
+      },
+    );
+
+    return () => unsub();
+  }, [serviceId]);
+
+  const sendMessage = async () => {
+    if (!text.trim() || !currentUser || !serviceId) return;
+    const msg = text.trim();
     setText("");
-
-    // Auto-respuesta simulada
-    if (Math.random() > 0.35) {
-      setTimeout(
-        () => {
-          const auto = {
-            id: Date.now() + 1,
-            senderId: -1,
-            senderName: otherName || "Usuario",
-            text: AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)],
-            ts: new Date().toLocaleTimeString("es-CO", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          };
-          addMessage(svcId, auto);
-        },
-        900 + Math.random() * 900,
-      );
+    setSending(true);
+    try {
+      await addDoc(collection(db, "chats", serviceId, "messages"), {
+        text: msg,
+        senderId: currentUser.id,
+        senderName: currentUser.nombre,
+        createdAt: serverTimestamp(),
+      });
+    } catch (e: any) {
+      Alert.alert("Error", "No se pudo enviar el mensaje");
+      setText(msg);
+    } finally {
+      setSending(false);
     }
+  };
+
+  const svcTitle = svcInfo
+    ? `${svcInfo.tipoPartido} · ${svcInfo.ciudad}`
+    : "Chat";
+
+  const otherName =
+    currentUser?.role === "player"
+      ? svc?.confirmedGkName || svcInfo?.confirmedGkName || "Portero"
+      : svc?.playerName || svcInfo?.playerName || "Jugador";
+
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isMine = item.senderId === currentUser?.id;
+    return (
+      <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
+        {!isMine && (
+          <View style={styles.msgAvatar}>
+            <Text style={styles.msgAvatarText}>
+              {item.senderName?.charAt(0) || "?"}
+            </Text>
+          </View>
+        )}
+        <View
+          style={[
+            styles.bubble,
+            isMine ? styles.bubbleMine : styles.bubbleOther,
+          ]}
+        >
+          {!isMine && (
+            <Text style={styles.bubbleSender}>{item.senderName}</Text>
+          )}
+          <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
+            {item.text}
+          </Text>
+          <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
+            {item.createdAt?.toDate
+              ? item.createdAt
+                  .toDate()
+                  .toLocaleTimeString("es-CO", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+              : ""}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
       <StatusBar style="light" />
@@ -96,114 +162,72 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{otherName?.charAt(0) || "?"}</Text>
-          </View>
-          <View>
-            <Text style={styles.headerName}>{otherName || "Chat"}</Text>
-            <View style={styles.onlineRow}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>
-                {active ? "En línea" : "Chat no disponible"}
-              </Text>
-            </View>
-          </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {svcTitle}
+          </Text>
+          <Text style={styles.headerSub}>💬 Chat con {otherName}</Text>
         </View>
-        <View style={styles.svcBadge}>
-          <Text style={styles.svcBadgeText}>{svc?.tipoPartido}</Text>
-        </View>
+        {serviceId && (
+          <TouchableOpacity
+            style={styles.mapBtn}
+            onPress={() => router.push(`/map?serviceId=${serviceId}` as any)}
+          >
+            <Text style={styles.mapBtnText}>📍</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Mensajes */}
-      {msgs.length === 0 ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatEmoji}>💬</Text>
-          <Text style={styles.emptyChatText}>
-            {active
-              ? "Inicia la conversación"
-              : "El chat se habilita cuando el servicio es confirmado"}
-          </Text>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color="#00ff87" size="large" />
         </View>
       ) : (
         <FlatList
-          ref={flatRef}
-          data={msgs}
-          keyExtractor={(m) => String(m.id)}
-          contentContainerStyle={styles.msgList}
-          onContentSizeChange={() =>
-            flatRef.current?.scrollToEnd({ animated: true })
+          ref={listRef}
+          data={messages}
+          keyExtractor={(m) => m.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messageList}
+          onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={styles.emptyChat}>
+              <Text style={styles.emptyChatEmoji}>💬</Text>
+              <Text style={styles.emptyChatText}>
+                Inicia la conversación con {otherName}
+              </Text>
+            </View>
           }
-          renderItem={({ item: m }) => {
-            const mine = m.senderId === currentUser?.id;
-            return (
-              <View
-                style={[
-                  styles.msgRow,
-                  mine ? styles.msgRowMine : styles.msgRowOther,
-                ]}
-              >
-                {!mine && (
-                  <View style={styles.msgAvatar}>
-                    <Text style={styles.msgAvatarText}>
-                      {m.senderName?.charAt(0)}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.msgColumn}>
-                  <View
-                    style={[
-                      styles.bubble,
-                      mine ? styles.bubbleMine : styles.bubbleOther,
-                    ]}
-                  >
-                    <Text
-                      style={[styles.bubbleText, mine && styles.bubbleTextMine]}
-                    >
-                      {m.text}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.msgTs,
-                      mine ? styles.msgTsMine : styles.msgTsOther,
-                    ]}
-                  >
-                    {m.ts}
-                  </Text>
-                </View>
-              </View>
-            );
-          }}
         />
       )}
 
       {/* Input */}
       <View style={styles.inputBar}>
-        {active ? (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Escribe un mensaje..."
-              placeholderTextColor="#444"
-              value={text}
-              onChangeText={setText}
-              onSubmitEditing={send}
-              returnKeyType="send"
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, !text.trim() && styles.sendBtnDisabled]}
-              onPress={send}
-            >
-              <Text style={styles.sendBtnText}>➤</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <Text style={styles.chatDisabled}>
-            Chat disponible solo cuando el servicio está confirmado
-          </Text>
-        )}
+        <TextInput
+          style={styles.input}
+          placeholder={`Mensaje a ${otherName}...`}
+          placeholderTextColor="#444"
+          value={text}
+          onChangeText={setText}
+          multiline
+          maxLength={500}
+          onSubmitEditing={sendMessage}
+        />
+        <TouchableOpacity
+          style={[
+            styles.sendBtn,
+            (!text.trim() || sending) && styles.sendBtnDisabled,
+          ]}
+          onPress={sendMessage}
+          disabled={!text.trim() || sending}
+        >
+          {sending ? (
+            <ActivityIndicator color="#0a0a0f" size="small" />
+          ) : (
+            <Text style={styles.sendBtnText}>↑</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -214,116 +238,96 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 52,
-    paddingBottom: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#1e1e2a",
-    backgroundColor: "#0d0d16",
+    gap: 10,
   },
   backBtn: { padding: 4 },
-  backText: { color: "#f0ede8", fontSize: 22, fontWeight: "600" },
-  headerInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#00ff87",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontWeight: "800", fontSize: 14, color: "#0a0a0f" },
-  headerName: { fontWeight: "700", fontSize: 14, color: "#f0ede8" },
-  onlineRow: {
+  backText: { color: "#00ff87", fontSize: 22, fontWeight: "700" },
+  headerTitle: { fontSize: 14, fontWeight: "700", color: "#f0ede8" },
+  headerSub: { fontSize: 11, color: "#555", marginTop: 1 },
+  mapBtn: { padding: 8, backgroundColor: "#16161f", borderRadius: 8 },
+  mapBtnText: { fontSize: 18 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  messageList: { padding: 16, paddingBottom: 8, flexGrow: 1 },
+  msgRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
+    marginBottom: 12,
+    alignItems: "flex-end",
+    gap: 8,
   },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#00ff87",
-  },
-  onlineText: { fontSize: 10, color: "#00ff87" },
-  svcBadge: {
-    backgroundColor: "rgba(0,255,135,.1)",
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  svcBadgeText: { color: "#00ff87", fontSize: 9, fontWeight: "700" },
-  emptyChat: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyChatEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyChatText: {
-    color: "#444",
-    fontSize: 13,
-    textAlign: "center",
-    maxWidth: 240,
-  },
-  msgList: { padding: 16, paddingBottom: 8 },
-  msgRow: { flexDirection: "row", marginBottom: 14, alignItems: "flex-end" },
-  msgRowMine: { justifyContent: "flex-end" },
-  msgRowOther: { justifyContent: "flex-start" },
+  msgRowMine: { flexDirection: "row-reverse" },
   msgAvatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#1e1e2a",
+    backgroundColor: "#2a2a35",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 7,
-    marginBottom: 2,
   },
-  msgAvatarText: { fontSize: 11, fontWeight: "700", color: "#888" },
-  msgColumn: { maxWidth: "72%" },
-  bubble: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
-  bubbleMine: { backgroundColor: "#00ff87", borderBottomRightRadius: 2 },
-  bubbleOther: { backgroundColor: "#1a1a28", borderBottomLeftRadius: 2 },
+  msgAvatarText: { color: "#f0ede8", fontSize: 11, fontWeight: "700" },
+  bubble: { maxWidth: "75%", borderRadius: 16, padding: 10 },
+  bubbleMine: { backgroundColor: "#00ff87", borderBottomRightRadius: 4 },
+  bubbleOther: {
+    backgroundColor: "#16161f",
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+  },
+  bubbleSender: {
+    fontSize: 10,
+    color: "#555",
+    fontWeight: "700",
+    marginBottom: 3,
+  },
   bubbleText: { fontSize: 14, color: "#f0ede8", lineHeight: 20 },
   bubbleTextMine: { color: "#0a0a0f" },
-  msgTs: { fontSize: 9, marginTop: 3, color: "#444" },
-  msgTsMine: { textAlign: "right" },
-  msgTsOther: { textAlign: "left" },
+  bubbleTime: {
+    fontSize: 9,
+    color: "#888",
+    marginTop: 4,
+    alignSelf: "flex-end",
+  },
+  bubbleTimeMine: { color: "#0a0a0f80" },
+  emptyChat: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyChatEmoji: { fontSize: 40, marginBottom: 10 },
+  emptyChatText: { color: "#444", fontSize: 14, textAlign: "center" },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
     padding: 12,
-    paddingBottom: 28,
     borderTopWidth: 1,
     borderTopColor: "#1e1e2a",
-    backgroundColor: "#0d0d16",
+    gap: 8,
   },
   input: {
     flex: 1,
     backgroundColor: "#16161f",
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: "#2a2a35",
     color: "#f0ede8",
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 22,
     fontSize: 14,
     maxHeight: 100,
   },
   sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#00ff87",
     alignItems: "center",
     justifyContent: "center",
   },
-  sendBtnDisabled: { backgroundColor: "#1a2a1a" },
-  sendBtnText: { color: "#0a0a0f", fontSize: 16, fontWeight: "800" },
-  chatDisabled: {
-    flex: 1,
-    color: "#444",
-    fontSize: 12,
-    textAlign: "center",
-    paddingVertical: 14,
-  },
+  sendBtnDisabled: { backgroundColor: "#1a3a1a" },
+  sendBtnText: { color: "#0a0a0f", fontSize: 18, fontWeight: "800" },
 });

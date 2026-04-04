@@ -1,131 +1,214 @@
+// app/map/index.tsx — GPS real con expo-location + Firebase Realtime
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Easing,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import { CANCHA_COORDS } from "../../components/constants";
+import { db } from "../../lib/firebase";
 import { useAppStore } from "../../store/appStore";
 
-export default function LiveMap() {
-  const router = useRouter();
+const DARK_MAP = [
+  { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#304a7d" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#255763" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0e1626" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry",
+    stylers: [{ color: "#283d6a" }],
+  },
+];
+
+interface GpsData {
+  lat: number;
+  lng: number;
+  updatedAt: number;
+}
+
+export default function MapScreen() {
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
-  const { currentUser, services } = useAppStore();
-
-  const svcId = serviceId || "";
-  const svc = services.find((s) => s.id === svcId);
-  const isGK = currentUser?.role === "goalkeeper";
-
-  // Coordenadas de la cancha
-  const canchaCoords = CANCHA_COORDS[svc?.cancha || ""] || [4.711, -74.0721];
-  const canchaLatLng = {
-    latitude: canchaCoords[0],
-    longitude: canchaCoords[1],
-  };
-
-  // Posición inicial del portero (offset desde la cancha)
-  const gkStart = {
-    latitude: canchaCoords[0] - 0.009,
-    longitude: canchaCoords[1] - 0.013,
-  };
-
-  // Posición del jugador (otro offset)
-  const playerPos = {
-    latitude: canchaCoords[0] + 0.007,
-    longitude: canchaCoords[1] + 0.009,
-  };
-
-  const [gkPos, setGkPos] = useState(gkStart);
-  const [progress, setProgress] = useState(0);
-  const [eta, setEta] = useState(14);
-  const [route, setRoute] = useState([gkStart, canchaLatLng]);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const router = useRouter();
+  const { currentUser } = useAppStore();
   const mapRef = useRef<MapView>(null);
 
-  const arrived =
-    progress >= 100 ||
-    svc?.status === "in_progress" ||
-    svc?.status === "completed";
+  const [svc, setSvc] = useState<any>(null);
+  const [gkLocation, setGkLocation] = useState<GpsData | null>(null);
+  const [myLocation, setMyLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tracking, setTracking] = useState(false);
+  const [enCamino, setEnCamino] = useState(false);
+  const locationSub = useRef<Location.LocationSubscription | null>(null);
 
-  // Animación de pulso en el marcador del portero
+  const isGK = currentUser?.role === "goalkeeper";
+
+  // Cargar servicio
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.3,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1.0,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
+    if (!serviceId) return;
+    getDoc(doc(db, "services", serviceId)).then((snap) => {
+      if (snap.exists()) setSvc({ id: snap.id, ...snap.data() });
+      setLoading(false);
+    });
+  }, [serviceId]);
+
+  // Escuchar ubicación GPS del portero en Firestore
+  useEffect(() => {
+    if (!serviceId) return;
+    const unsub = onSnapshot(doc(db, "gpsTracking", serviceId), (snap) => {
+      if (snap.exists()) {
+        setGkLocation(snap.data() as GpsData);
+        setEnCamino(true);
+      }
+    });
+    return () => unsub();
+  }, [serviceId]);
+
+  // Solicitar permisos de ubicación
+  const requestLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permiso requerido",
+        "Necesitamos acceso a tu ubicación para el seguimiento.",
+      );
+      return false;
+    }
+    return true;
+  };
+
+  // Portero: iniciar envío de GPS
+  const startTracking = async () => {
+    const ok = await requestLocation();
+    if (!ok || !serviceId) return;
+
+    setTracking(true);
+    locationSub.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 3000, // cada 3 segundos
+        distanceInterval: 10, // o cada 10 metros
+      },
+      async (loc) => {
+        const { latitude: lat, longitude: lng } = loc.coords;
+        setMyLocation({ lat, lng });
+        // Guardar en Firestore
+        await updateDoc(doc(db, "gpsTracking", serviceId), {
+          lat,
+          lng,
+          gkId: currentUser!.id,
+          gkName: currentUser!.nombre,
+          updatedAt: Date.now(),
+          active: true,
+        }).catch(async () => {
+          // Si no existe el doc, crearlo
+          const { setDoc } = await import("firebase/firestore");
+          await setDoc(doc(db, "gpsTracking", serviceId), {
+            lat,
+            lng,
+            gkId: currentUser!.id,
+            gkName: currentUser!.nombre,
+            updatedAt: Date.now(),
+            active: true,
+          });
+        });
+
+        // Centrar mapa en mi ubicación
+        mapRef.current?.animateToRegion(
+          {
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          500,
+        );
+      },
+    );
+  };
+
+  const stopTracking = async () => {
+    locationSub.current?.remove();
+    setTracking(false);
+    if (serviceId) {
+      await updateDoc(doc(db, "gpsTracking", serviceId), {
+        active: false,
+      }).catch(() => {});
+    }
+  };
+
+  // Jugador: obtener mi ubicación para mostrar en mapa
+  useEffect(() => {
+    if (isGK) return;
+    (async () => {
+      const ok = await requestLocation();
+      if (!ok) return;
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setMyLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    })();
   }, []);
 
-  // Movimiento del portero hacia la cancha
   useEffect(() => {
-    if (arrived) {
-      setGkPos(canchaLatLng);
-      setProgress(100);
-      setEta(0);
-      return;
-    }
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        const np = Math.min(p + 1.2, 100);
-        const frac = np / 100;
-        const newPos = {
-          latitude:
-            gkStart.latitude * (1 - frac) + canchaLatLng.latitude * frac,
-          longitude:
-            gkStart.longitude * (1 - frac) + canchaLatLng.longitude * frac,
-        };
-        setGkPos(newPos);
-        setRoute([newPos, canchaLatLng]);
-        setEta(Math.max(0, Math.round(14 * (1 - np / 100))));
-        // Centrar mapa en el portero mientras avanza
-        if (!isGK) {
-          mapRef.current?.animateToRegion(
-            { ...newPos, latitudeDelta: 0.03, longitudeDelta: 0.03 },
-            300,
-          );
-        }
-        return np;
-      });
-    }, 350);
-    return () => clearInterval(interval);
-  }, [arrived]);
-
-  // Estado del servicio
-  const statusMap: Record<string, { label: string; color: string }> = {
-    pending: { label: "Portero en camino", color: "#ffa500" },
-    confirmed: { label: "Portero en camino", color: "#ffa500" },
-    in_progress: { label: "🟢 En progreso", color: "#00ff87" },
-    completed: { label: "✓ Completado", color: "#888" },
-  };
-  const statusInfo = statusMap[svc?.status ?? "confirmed"] ?? {
-    label: "–",
-    color: "#888",
-  };
+    return () => {
+      locationSub.current?.remove();
+    };
+  }, []);
 
   // Región inicial del mapa
-  const initialRegion = {
-    latitude: (gkStart.latitude + canchaLatLng.latitude) / 2,
-    longitude: (gkStart.longitude + canchaLatLng.longitude) / 2,
-    latitudeDelta: 0.04,
-    longitudeDelta: 0.04,
-  };
+  const initialRegion = gkLocation
+    ? {
+        latitude: gkLocation.lat,
+        longitude: gkLocation.lng,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }
+    : myLocation
+      ? {
+          latitude: myLocation.lat,
+          longitude: myLocation.lng,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        }
+      : {
+          latitude: 4.711,
+          longitude: -74.0721,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color="#00ff87" size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -137,20 +220,14 @@ export default function LiveMap() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <View style={styles.liveRow}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>EN VIVO</Text>
-            <Text style={styles.headerSub}>
-              {isGK ? "· Tu ruta a la cancha" : "· Seguimiento del portero"}
-            </Text>
-          </View>
-          <Text style={[styles.statusLabel, { color: statusInfo.color }]}>
-            {statusInfo.label}
+          <Text style={styles.headerTitle}>
+            {isGK ? "📍 Mi ubicación en vivo" : "📍 Seguimiento del portero"}
           </Text>
-        </View>
-        <View style={styles.etaBadge}>
-          <Text style={styles.etaVal}>{arrived ? "✓" : `~${eta}`}</Text>
-          <Text style={styles.etaUnit}>{arrived ? "llegó" : "min"}</Text>
+          {svc && (
+            <Text style={styles.headerSub}>
+              {svc.tipoPartido} · {svc.cancha}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -159,272 +236,188 @@ export default function LiveMap() {
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
+        customMapStyle={DARK_MAP}
         initialRegion={initialRegion}
-        customMapStyle={darkMapStyle}
-        showsUserLocation={false}
-        showsTraffic={false}
-        showsBuildings={false}
+        showsUserLocation={!isGK}
+        showsMyLocationButton={false}
       >
-        {/* Ruta punteada portero → cancha */}
-        {!arrived && (
-          <Polyline
-            coordinates={route}
-            strokeColor="#00ff87"
-            strokeWidth={3}
-            lineDashPattern={[8, 6]}
-          />
+        {/* Marcador portero (GPS real) */}
+        {gkLocation && (
+          <Marker
+            coordinate={{ latitude: gkLocation.lat, longitude: gkLocation.lng }}
+            title="🧤 Portero"
+            description={svc?.confirmedGkName || "Portero"}
+          >
+            <View style={styles.gkMarker}>
+              <Text style={styles.gkMarkerText}>🧤</Text>
+            </View>
+          </Marker>
         )}
 
-        {/* Marcador CANCHA */}
-        <Marker coordinate={canchaLatLng} anchor={{ x: 0.5, y: 0.5 }}>
-          <View style={styles.canchaMarker}>
-            <Text style={styles.canchaEmoji}>⚽</Text>
-          </View>
-        </Marker>
-
-        {/* Marcador JUGADOR */}
-        <Marker
-          coordinate={playerPos}
-          anchor={{ x: 0.5, y: 0.5 }}
-          title={isGK ? svc?.playerName || "Jugador" : "Tú"}
-        >
-          <View style={styles.playerMarker}>
-            <Text style={styles.markerEmoji}>🙋</Text>
-          </View>
-        </Marker>
-
-        {/* Marcador PORTERO (animado) */}
-        <Marker
-          coordinate={gkPos}
-          anchor={{ x: 0.5, y: 0.5 }}
-          title={isGK ? "Tú" : svc?.confirmedGkName || "Portero"}
-        >
-          <Animated.View
-            style={[
-              styles.gkMarker,
-              { transform: [{ scale: arrived ? 1 : pulseAnim }] },
-            ]}
+        {/* Marcador jugador */}
+        {!isGK && myLocation && (
+          <Marker
+            coordinate={{ latitude: myLocation.lat, longitude: myLocation.lng }}
+            title="⚽ Tú"
           >
-            <Text style={styles.markerEmoji}>🧤</Text>
-          </Animated.View>
-        </Marker>
+            <View style={styles.playerMarker}>
+              <Text style={styles.playerMarkerText}>⚽</Text>
+            </View>
+          </Marker>
+        )}
+
+        {/* Línea entre portero y jugador */}
+        {gkLocation && myLocation && (
+          <Polyline
+            coordinates={[
+              { latitude: gkLocation.lat, longitude: gkLocation.lng },
+              { latitude: myLocation.lat, longitude: myLocation.lng },
+            ]}
+            strokeColor="#00ff87"
+            strokeWidth={2}
+            lineDashPattern={[8, 4]}
+          />
+        )}
       </MapView>
 
       {/* Panel inferior */}
-      <View style={styles.bottomPanel}>
-        {/* Info de la cancha */}
-        <View style={styles.canchaInfo}>
-          <View style={styles.canchaInfoLeft}>
-            <Text style={styles.canchaName}>{svc?.cancha || "Cancha"}</Text>
-            <Text style={styles.canchaCity}>
-              {svc?.ciudad} · {svc?.tipoPartido}
+      <View style={styles.panel}>
+        {isGK ? (
+          // Portero: botones de tracking
+          <View>
+            <Text style={styles.panelTitle}>
+              {tracking
+                ? "🟢 Compartiendo ubicación"
+                : "📍 Compartir mi ubicación"}
             </Text>
-          </View>
-          <View style={styles.canchaInfoRight}>
-            <Text style={styles.canchaHora}>{svc?.hora}</Text>
-            <Text style={styles.canchaFecha}>{svc?.fecha}</Text>
-          </View>
-        </View>
-
-        {/* Barra de progreso */}
-        <View style={styles.progressRow}>
-          <Text style={styles.progressLabel}>
-            {isGK ? "Tu progreso" : "Portero en camino"}
-          </Text>
-          <Text style={styles.progressPct}>{Math.round(progress)}%</Text>
-        </View>
-        <View style={styles.progressBg}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
-
-        {/* Leyenda */}
-        <View style={styles.legend}>
-          {[
-            [
-              "🧤",
-              isGK ? "Tú" : svc?.confirmedGkName?.split(" ")[0] || "Portero",
-              "#00ff87",
-            ],
-            [
-              "🙋",
-              isGK ? svc?.playerName?.split(" ")[0] || "Jugador" : "Tú",
-              "#00aaff",
-            ],
-            [
-              "⚽",
-              (svc?.cancha || "Cancha").split(" ").slice(0, 2).join(" "),
-              "#ffa500",
-            ],
-          ].map(([emoji, label, color]) => (
-            <View key={label as string} style={styles.legendItem}>
-              <Text style={styles.legendEmoji}>{emoji}</Text>
-              <Text style={[styles.legendLabel, { color: color as string }]}>
-                {label}
+            <Text style={styles.panelSub}>
+              {tracking
+                ? "El jugador puede verte en el mapa en tiempo real"
+                : "Activa para que el jugador vea dónde estás"}
+            </Text>
+            <TouchableOpacity
+              style={[styles.trackBtn, tracking && styles.trackBtnStop]}
+              onPress={tracking ? stopTracking : startTracking}
+            >
+              <Text style={styles.trackBtnText}>
+                {tracking ? "⏹ Dejar de compartir" : "▶ Iniciar seguimiento"}
               </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Botón volver al chat */}
-        <TouchableOpacity
-          style={styles.btnChat}
-          onPress={() => router.push(`/chat?serviceId=${svcId}` as any)}
-        >
-          <Text style={styles.btnChatText}>💬 Ir al chat</Text>
-        </TouchableOpacity>
+            </TouchableOpacity>
+            {serviceId && (
+              <TouchableOpacity
+                style={styles.chatBtn}
+                onPress={() =>
+                  router.push(`/chat?serviceId=${serviceId}` as any)
+                }
+              >
+                <Text style={styles.chatBtnText}>💬 Abrir chat</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          // Jugador: ver estado del portero
+          <View>
+            <Text style={styles.panelTitle}>
+              {enCamino ? "🧤 Portero en camino" : "⏳ Esperando al portero..."}
+            </Text>
+            <Text style={styles.panelSub}>
+              {enCamino
+                ? `${svc?.confirmedGkName || "El portero"} está compartiendo su ubicación`
+                : "El portero aún no ha iniciado el seguimiento GPS"}
+            </Text>
+            {gkLocation && (
+              <Text style={styles.lastUpdate}>
+                Última actualización:{" "}
+                {new Date(gkLocation.updatedAt).toLocaleTimeString("es-CO")}
+              </Text>
+            )}
+            {serviceId && (
+              <TouchableOpacity
+                style={styles.chatBtn}
+                onPress={() =>
+                  router.push(`/chat?serviceId=${serviceId}` as any)
+                }
+              >
+                <Text style={styles.chatBtnText}>💬 Abrir chat</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
 }
 
-// Estilo oscuro para el mapa de Google
-const darkMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#0a0a0f" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#1e2535" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#212a37" }],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#9ca5b3" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#2a3040" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#050d1a" }],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#515c6d" }],
-  },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  {
-    featureType: "administrative",
-    elementType: "geometry",
-    stylers: [{ color: "#1e1e2a" }],
-  },
-];
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0a0a0f" },
+  center: {
+    flex: 1,
+    backgroundColor: "#0a0a0f",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 52,
-    paddingBottom: 14,
-    backgroundColor: "#0d0d16",
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#1e1e2a",
+    gap: 10,
+    backgroundColor: "#0a0a0f",
+    zIndex: 10,
   },
   backBtn: { padding: 4 },
-  backText: { color: "#f0ede8", fontSize: 22, fontWeight: "600" },
-  liveRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#00ff87" },
-  liveText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#00ff87",
-    letterSpacing: 1,
-  },
-  headerSub: { fontSize: 11, color: "#555" },
-  statusLabel: { fontSize: 12, fontWeight: "700", marginTop: 3 },
-  etaBadge: {
-    backgroundColor: "#13131c",
-    borderRadius: 8,
-    padding: 10,
-    alignItems: "center",
-    minWidth: 52,
-  },
-  etaVal: { fontSize: 18, fontWeight: "800", color: "#00ff87" },
-  etaUnit: { fontSize: 9, color: "#555", marginTop: 1 },
+  backText: { color: "#00ff87", fontSize: 22, fontWeight: "700" },
+  headerTitle: { fontSize: 14, fontWeight: "700", color: "#f0ede8" },
+  headerSub: { fontSize: 11, color: "#555", marginTop: 1 },
   map: { flex: 1 },
-  canchaMarker: {
-    backgroundColor: "#0a2018",
-    borderRadius: 20,
-    padding: 8,
-    borderWidth: 2,
-    borderColor: "#00ff87",
-  },
-  canchaEmoji: { fontSize: 18 },
-  playerMarker: {
-    backgroundColor: "#0a1525",
-    borderRadius: 16,
-    padding: 6,
-    borderWidth: 2,
-    borderColor: "#00aaff",
-  },
   gkMarker: {
-    backgroundColor: "#0a2010",
-    borderRadius: 16,
+    backgroundColor: "#00ff87",
+    borderRadius: 20,
     padding: 6,
-    borderWidth: 2.5,
-    borderColor: "#00ff87",
+    borderWidth: 2,
+    borderColor: "#0a0a0f",
   },
-  markerEmoji: { fontSize: 16 },
-  bottomPanel: {
-    backgroundColor: "#0d0d16",
+  gkMarkerText: { fontSize: 18 },
+  playerMarker: {
+    backgroundColor: "#00aaff",
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "#0a0a0f",
+  },
+  playerMarkerText: { fontSize: 18 },
+  panel: {
+    backgroundColor: "#13131c",
     borderTopWidth: 1,
     borderTopColor: "#1e1e2a",
-    padding: 16,
-    paddingBottom: 28,
+    padding: 20,
   },
-  canchaInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 14,
+  panelTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#f0ede8",
+    marginBottom: 4,
   },
-  canchaInfoLeft: { flex: 1 },
-  canchaName: { fontWeight: "700", fontSize: 14, color: "#f0ede8" },
-  canchaCity: { fontSize: 11, color: "#555", marginTop: 3 },
-  canchaInfoRight: { alignItems: "flex-end" },
-  canchaHora: { fontWeight: "800", fontSize: 16, color: "#00ff87" },
-  canchaFecha: { fontSize: 11, color: "#555", marginTop: 2 },
-  progressRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
+  panelSub: { fontSize: 12, color: "#555", marginBottom: 14 },
+  lastUpdate: { fontSize: 10, color: "#444", marginBottom: 10 },
+  trackBtn: {
+    backgroundColor: "#00ff87",
+    paddingVertical: 13,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 8,
   },
-  progressLabel: { fontSize: 11, color: "#555" },
-  progressPct: { fontSize: 11, fontWeight: "700", color: "#00ff87" },
-  progressBg: {
-    height: 4,
-    backgroundColor: "#1e1e2a",
-    borderRadius: 2,
-    marginBottom: 14,
-  },
-  progressFill: { height: "100%", backgroundColor: "#00ff87", borderRadius: 2 },
-  legend: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 14,
-  },
-  legendItem: { alignItems: "center", gap: 4 },
-  legendEmoji: { fontSize: 18 },
-  legendLabel: { fontSize: 10, fontWeight: "700" },
-  btnChat: {
+  trackBtnStop: { backgroundColor: "#ff4757" },
+  trackBtnText: { color: "#0a0a0f", fontWeight: "800", fontSize: 14 },
+  chatBtn: {
     borderWidth: 1.5,
     borderColor: "#00aaff",
-    borderRadius: 6,
-    padding: 11,
+    paddingVertical: 11,
+    borderRadius: 8,
     alignItems: "center",
   },
-  btnChatText: { color: "#00aaff", fontWeight: "700", fontSize: 13 },
+  chatBtnText: { color: "#00aaff", fontWeight: "700", fontSize: 13 },
 });

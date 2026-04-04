@@ -1,52 +1,61 @@
 // app/_layout.tsx
-import { Stack, usePathname, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAppStore } from "../store/appStore";
 
+const PROTECTED = [
+  "player",
+  "goalkeeper",
+  "profile",
+  "admin",
+  "chat",
+  "map",
+  "rating",
+];
+const AUTH_ONLY = ["", "login", "register"];
+
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const pathname = usePathname();
   const { currentUser, authLoading, initAuth } = useAppStore();
-  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMounted = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(false);
 
   useEffect(() => {
-    isMounted.current = true;
+    mounted.current = true;
     initAuth();
     return () => {
-      isMounted.current = false;
-      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+      mounted.current = false;
+      if (timer.current) clearTimeout(timer.current);
     };
   }, []);
 
   useEffect(() => {
     if (authLoading) return;
-    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    if (timer.current) clearTimeout(timer.current);
 
-    redirectTimer.current = setTimeout(() => {
-      if (!isMounted.current) return;
-
-      const protectedRoutes = ["player", "goalkeeper", "profile", "admin"];
-      const inApp = protectedRoutes.includes(segments[0] as string);
-      const isAuthRoute =
-        !segments[0] || segments[0] === "login" || segments[0] === "register";
+    timer.current = setTimeout(() => {
+      if (!mounted.current) return;
+      const seg0 = (segments[0] as string) ?? "";
+      const inApp = PROTECTED.includes(seg0);
+      const isAuth = AUTH_ONLY.includes(seg0);
 
       if (!currentUser && inApp) {
         router.replace("/" as any);
-      } else if (currentUser && isAuthRoute) {
-        router.replace(
-          currentUser.role === "player"
-            ? ("/player/dashboard" as any)
-            : ("/goalkeeper/dashboard" as any),
-        );
+      } else if (currentUser && isAuth) {
+        if (currentUser.role === "admin") {
+          router.replace("/admin/dashboard" as any);
+        } else if (currentUser.role === "player") {
+          router.replace("/player/dashboard" as any);
+        } else {
+          router.replace("/goalkeeper/dashboard" as any);
+        }
       }
-      // Si está en perfil u otra ruta válida con sesión → no redirigir
     }, 150);
 
     return () => {
-      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+      if (timer.current) clearTimeout(timer.current);
     };
   }, [currentUser?.id, authLoading, segments[0]]);
 
@@ -72,6 +81,7 @@ export default function RootLayout() {
       <Stack.Screen name="register" />
       <Stack.Screen name="player/dashboard" />
       <Stack.Screen name="goalkeeper/dashboard" />
+      <Stack.Screen name="admin/dashboard" />
       <Stack.Screen name="profile/index" />
       <Stack.Screen name="chat/index" />
       <Stack.Screen name="map/index" />
