@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -259,26 +260,26 @@ export default function AdminDashboard() {
                 {selected.cedulaURL ? (
                   <View style={styles.modalSection}>
                     <Text style={styles.modalLabel}>DOCUMENTO CÉDULA</Text>
-                    {selected.cedulaURL.includes(".pdf") ? (
-                      <View style={styles.pdfBox}>
-                        <Text style={styles.pdfIcon}>📄</Text>
-                        <Text style={styles.pdfText}>
-                          Documento PDF adjunto
-                        </Text>
-                        <Text style={styles.pdfHint} selectable>
-                          {selected.cedulaURL}
-                        </Text>
-                      </View>
-                    ) : (
-                      <Image
-                        source={{ uri: selected.cedulaURL }}
-                        style={styles.modalCedula}
-                        resizeMode="contain"
-                        onError={() =>
-                          console.log("Error cargando imagen cédula")
-                        }
-                      />
-                    )}
+                    <TouchableOpacity
+                      style={styles.viewDocBtn}
+                      onPress={() => Linking.openURL(selected.cedulaURL!)}
+                    >
+                      <Text style={styles.viewDocIcon}>
+                        {selected.cedulaURL!.includes("cedulas") ? "📄" : "🖼️"}
+                      </Text>
+                      <Text style={styles.viewDocText}>
+                        Ver documento cédula
+                      </Text>
+                      <Text style={styles.viewDocHint}>
+                        Toca para abrir en el navegador
+                      </Text>
+                    </TouchableOpacity>
+                    <Image
+                      source={{ uri: selected.cedulaURL! }}
+                      style={styles.modalCedula}
+                      resizeMode="contain"
+                      onError={() => {}}
+                    />
                   </View>
                 ) : (
                   <View style={[styles.modalSection, styles.noCedula]}>
@@ -550,6 +551,18 @@ const styles = StyleSheet.create({
   pdfIcon: { fontSize: 36, marginBottom: 8 },
   pdfText: { color: "#f0ede8", fontWeight: "700", fontSize: 13 },
   pdfHint: { color: "#555", fontSize: 9, marginTop: 4, textAlign: "center" },
+  viewDocBtn: {
+    backgroundColor: "#16161f",
+    borderRadius: 8,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#00ff87",
+    marginBottom: 8,
+  },
+  viewDocIcon: { fontSize: 28, marginBottom: 4 },
+  viewDocText: { color: "#00ff87", fontWeight: "700", fontSize: 13 },
+  viewDocHint: { color: "#555", fontSize: 10, marginTop: 2 },
   btnClose: {
     borderWidth: 1,
     borderColor: "#2a2a35",
