@@ -19,11 +19,30 @@
       },
       "package": "com.keepers.app",
       "versionCode": 1,
-      "permissions": ["NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+      "config": {
+        "googleMaps": {
+          "apiKey": "TU_GOOGLE_MAPS_API_KEY"
+        }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.keepers.app"
+      "bundleIdentifier": "com.keepers.app",
+      "config": {
+        "googleMapsApiKey": "TU_GOOGLE_MAPS_API_KEY"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el seguimiento del portero.",
+        "NSLocationAlwaysUsageDescription": "Necesitamos tu ubicación para el seguimiento del portero."
+      }
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -36,7 +55,18 @@
           "color": "#00ff87",
           "sounds": []
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Keeperz necesita tu ubicación para el seguimiento en tiempo real del portero."
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eb81dc06-de59-4578-9d78-36f211c6cd36"
+      }
+    }
   }
 }

@@ -1,4 +1,5 @@
 // app/map/index.tsx — GPS real con expo-location + Firebase Realtime
+import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,9 +13,16 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, {
+  Marker,
+  Polyline,
+  PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
+} from "react-native-maps";
 import { db } from "../../lib/firebase";
 import { useAppStore } from "../../store/appStore";
+
+const isExpoGo = Constants.appOwnership === "expo";
 
 const DARK_MAP = [
   { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
@@ -235,7 +243,7 @@ export default function MapScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
+        provider={isExpoGo ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
         customMapStyle={DARK_MAP}
         initialRegion={initialRegion}
         showsUserLocation={!isGK}

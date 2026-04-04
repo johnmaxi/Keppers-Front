@@ -99,7 +99,31 @@ export default function AdminDashboard() {
         registrationStatus: "approved",
         registrationNote: "",
         disponible: true,
+        adminNotification: {
+          type: "approved",
+          message:
+            "¡Felicitaciones! Tu registro fue aprobado. Ya puedes recibir solicitudes.",
+          readAt: null,
+          createdAt: Date.now(),
+        },
       });
+      // Enviar push si tiene token
+      const userSnap = await import("firebase/firestore").then(
+        ({ getDoc: gd }) => gd(doc(db, "users", user.id)),
+      );
+      const pushToken = userSnap.data()?.pushToken;
+      if (pushToken) {
+        fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: pushToken,
+            title: "✅ ¡Registro aprobado!",
+            body: "Tu cuenta de portero fue aprobada. Ya puedes recibir solicitudes en Keeperz.",
+            data: { screen: "goalkeeper/dashboard" },
+          }),
+        }).catch(console.error);
+      }
       Alert.alert("✅", `${user.nombre} aprobado`);
       setSelected(null);
     } catch (e: any) {
@@ -127,7 +151,30 @@ Mensaje: ${e?.message}`,
         registrationStatus: "rejected",
         registrationNote: note.trim(),
         disponible: false,
+        adminNotification: {
+          type: "rejected",
+          message: `Tu registro fue rechazado. Motivo: ${note.trim()}`,
+          readAt: null,
+          createdAt: Date.now(),
+        },
       });
+      // Enviar push si tiene token
+      const userSnap2 = await import("firebase/firestore").then(
+        ({ getDoc: gd }) => gd(doc(db, "users", user.id)),
+      );
+      const pushToken2 = userSnap2.data()?.pushToken;
+      if (pushToken2) {
+        fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: pushToken2,
+            title: "❌ Registro rechazado",
+            body: `Tu registro fue rechazado. Motivo: ${note.trim()}`,
+            data: { screen: "goalkeeper/dashboard" },
+          }),
+        }).catch(console.error);
+      }
       Alert.alert("❌", `${user.nombre} rechazado`);
       setSelected(null);
       setNote("");

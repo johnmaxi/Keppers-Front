@@ -1,9 +1,9 @@
-// app/profile/index.tsx — Pantalla de perfil con saldo, historial y tallas
+// app/profile/index.tsx
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { doc, updateDoc } from "firebase/firestore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,45 +29,60 @@ const STATUS_COLOR: Record<string, string> = {
   rejected: "#ff4757",
 };
 
-export default function Profile() {
+export default function ProfileScreen() {
   const router = useRouter();
   const { currentUser, services, logout } = useAppStore();
-
   const [tab, setTab] = useState<"info" | "historial">("info");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [notification, setNotification] = useState<any>(null);
 
-  if (!currentUser) return null;
+  // Verificar si hay notificación pendiente del admin
+  useEffect(() => {
+    if (!currentUser) return;
+    const n = (currentUser as any).adminNotification;
+    if (n && !n.readAt) setNotification(n);
+  }, [currentUser]);
 
-  const isGK = currentUser.role === "goalkeeper";
-
-  // Historial de servicios del usuario
-  const myServices = services.filter((s) =>
-    isGK ? s.confirmedGkId === currentUser.id : s.playerId === currentUser.id,
-  );
-
-  const filterByDate = (svcs: typeof myServices) => {
-    return svcs.filter((s) => {
-      if (fechaDesde && s.fecha < fechaDesde) return false;
-      if (fechaHasta && s.fecha > fechaHasta) return false;
-      return true;
-    });
+  const dismissNotification = async () => {
+    if (!currentUser) return;
+    try {
+      await updateDoc(doc(db, "users", currentUser.id), {
+        "adminNotification.readAt": Date.now(),
+      });
+    } catch {}
+    setNotification(null);
   };
 
-  const completed = filterByDate(
-    myServices.filter((s) => s.status === "completed"),
-  );
-  const cancelled = filterByDate(
-    myServices.filter((s) => s.status === "cancelled"),
-  );
-  const totalGanado = completed.reduce((a, s) => a + (s.total || 0), 0);
+  const goBack = () => {
+    if (currentUser?.role === "player") {
+      router.replace("/player/dashboard" as any);
+    } else if (currentUser?.role === "admin") {
+      router.replace("/admin/dashboard" as any);
+    } else {
+      router.replace("/goalkeeper/dashboard" as any);
+    }
+  };
 
-  // Cambiar foto de perfil
-  const changePhoto = async () => {
+  const handleLogout = () => {
+    Alert.alert("Cerrar sesión", "¿Seguro que quieres salir?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Salir",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          router.replace("/" as any);
+        },
+      },
+    ]);
+  };
+
+  const changePhoto = () => {
     Alert.alert("Foto de perfil", "¿Cómo quieres cambiar tu foto?", [
-      { text: "Cámara", onPress: () => launchCamera() },
-      { text: "Galería", onPress: () => launchGallery() },
+      { text: "📸 Cámara", onPress: () => launchCamera() },
+      { text: "🖼️ Galería", onPress: () => launchGallery() },
       { text: "Cancelar", style: "cancel" },
     ]);
   };
@@ -81,9 +96,8 @@ export default function Profile() {
       quality: 0.7,
       base64: true,
     });
-    if (!result.canceled && result.assets[0]?.base64) {
+    if (!result.canceled && result.assets[0]?.base64)
       await uploadPhoto(result.assets[0].base64);
-    }
   };
 
   const launchGallery = async () => {
@@ -95,12 +109,12 @@ export default function Profile() {
       quality: 0.7,
       base64: true,
     });
-    if (!result.canceled && result.assets[0]?.base64) {
+    if (!result.canceled && result.assets[0]?.base64)
       await uploadPhoto(result.assets[0].base64);
-    }
   };
 
   const uploadPhoto = async (base64: string) => {
+    if (!currentUser) return;
     setUploading(true);
     try {
       const { auth } = await import("../../lib/firebase");
@@ -122,34 +136,44 @@ export default function Profile() {
         },
         body: bytes,
       });
-      if (!res.ok) throw new Error("Error subiendo foto");
+      if (!res.ok) throw new Error(`Storage error ${res.status}`);
       const data = await res.json();
       const photoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encoded}?alt=media&token=${data.downloadTokens}`;
-
       await updateDoc(doc(db, "users", currentUser.id), { photoURL });
-      // Reload user in store
-      const { useAppStore } = await import("../../store/appStore");
-      const snap = await import("../../lib/firebase").then(({ db }) =>
-        import("firebase/firestore").then(({ doc: d, getDoc }) =>
-          getDoc(d(db, "users", currentUser.id)),
-        ),
-      );
-      if (snap.exists()) {
-        useAppStore.getState().currentUser &&
-          Object.assign(useAppStore.getState().currentUser!, snap.data());
-      }
-      Alert.alert(
-        "✅",
-        "Foto actualizada. Reinicia la app para verla en el header.",
-      );
-    } catch {
-      Alert.alert("Error", "No se pudo actualizar la foto");
+      Alert.alert("✅", "Foto actualizada");
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "No se pudo actualizar la foto");
     } finally {
       setUploading(false);
     }
   };
 
-  const regStatus = currentUser.registrationStatus || "approved";
+  if (!currentUser) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color="#00ff87" />
+      </View>
+    );
+  }
+
+  const isGK = currentUser.role === "goalkeeper";
+  const myServices = services.filter((s) =>
+    isGK ? s.confirmedGkId === currentUser.id : s.playerId === currentUser.id,
+  );
+  const filterByDate = (svcs: typeof myServices) =>
+    svcs.filter((s) => {
+      if (fechaDesde && s.fecha < fechaDesde) return false;
+      if (fechaHasta && s.fecha > fechaHasta) return false;
+      return true;
+    });
+  const completed = filterByDate(
+    myServices.filter((s) => s.status === "completed"),
+  );
+  const cancelled = filterByDate(
+    myServices.filter((s) => s.status === "cancelled"),
+  );
+  const totalGanado = completed.reduce((a, s) => a + (s.total || 0), 0);
+  const regStatus = (currentUser as any).registrationStatus || "approved";
 
   return (
     <View style={styles.root}>
@@ -157,37 +181,46 @@ export default function Profile() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() =>
-            router.replace(
-              currentUser?.role === "player"
-                ? ("/player/dashboard" as any)
-                : ("/goalkeeper/dashboard" as any),
-            )
-          }
-          style={styles.backBtn}
-        >
+        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mi Perfil</Text>
-        <TouchableOpacity
-          onPress={() => {
-            Alert.alert("Cerrar sesión", "¿Seguro?", [
-              { text: "Cancelar", style: "cancel" },
-              {
-                text: "Salir",
-                style: "destructive",
-                onPress: async () => {
-                  await logout();
-                  router.replace("/" as any);
-                },
-              },
-            ]);
-          }}
-        >
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Salir</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Notificación admin pendiente */}
+      {notification && (
+        <View
+          style={[
+            styles.notifBanner,
+            {
+              backgroundColor:
+                notification.type === "approved"
+                  ? "rgba(0,255,135,.1)"
+                  : "rgba(255,71,87,.1)",
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.notifText,
+              {
+                color: notification.type === "approved" ? "#00ff87" : "#ff4757",
+              },
+            ]}
+          >
+            {notification.message}
+          </Text>
+          <TouchableOpacity
+            onPress={dismissNotification}
+            style={styles.notifClose}
+          >
+            <Text style={styles.notifCloseText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={styles.tabs}>
@@ -205,7 +238,6 @@ export default function Profile() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        {/* ── INFO ── */}
         {tab === "info" && (
           <View>
             {/* Avatar */}
@@ -219,7 +251,7 @@ export default function Profile() {
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarInitial}>
-                      {currentUser.nombre.charAt(0).toUpperCase()}
+                      {currentUser.nombre?.charAt(0)?.toUpperCase() || "?"}
                     </Text>
                   </View>
                 )}
@@ -229,7 +261,7 @@ export default function Profile() {
                   </View>
                 )}
                 <View style={styles.editBadge}>
-                  <Text style={styles.editBadgeText}>✏️</Text>
+                  <Text>✏️</Text>
                 </View>
               </TouchableOpacity>
               <Text style={styles.profileName}>{currentUser.nombre}</Text>
@@ -237,6 +269,7 @@ export default function Profile() {
                 {isGK ? "🧤 Portero" : "⚽ Jugador"}
               </Text>
               <Text style={styles.profileCity}>📍 {currentUser.ciudad}</Text>
+
               {isGK && (
                 <View
                   style={[
@@ -252,22 +285,23 @@ export default function Profile() {
                   >
                     {STATUS_LABEL[regStatus]}
                   </Text>
-                  {regStatus === "rejected" && currentUser.registrationNote && (
-                    <Text style={styles.regNote}>
-                      Motivo: {currentUser.registrationNote}
-                    </Text>
-                  )}
+                  {regStatus === "rejected" &&
+                    (currentUser as any).registrationNote && (
+                      <Text style={styles.regNote}>
+                        Motivo: {(currentUser as any).registrationNote}
+                      </Text>
+                    )}
                 </View>
               )}
             </View>
 
-            {/* Saldo / Stats */}
+            {/* Stats */}
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statVal}>
                   ${totalGanado.toLocaleString()}
                 </Text>
-                <Text style={styles.statLabel}>Ganado total</Text>
+                <Text style={styles.statLabel}>Ganado</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={[styles.statVal, { color: "#ffa500" }]}>
@@ -279,16 +313,16 @@ export default function Profile() {
                 <Text style={[styles.statVal, { color: "#00aaff" }]}>
                   {completed.length}
                 </Text>
-                <Text style={styles.statLabel}>Completados</Text>
+                <Text style={styles.statLabel}>Servicios</Text>
               </View>
             </View>
 
-            {/* Datos personales */}
+            {/* Datos */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Datos personales</Text>
               {[
                 ["📧 Email", currentUser.email],
-                ["📱 Teléfono", currentUser.telefono],
+                ["📱 Teléfono", currentUser.telefono || "—"],
                 ["🏦 Banco", currentUser.banco || "—"],
                 [
                   "💳 Cuenta",
@@ -305,50 +339,39 @@ export default function Profile() {
             </View>
 
             {/* Tallas */}
-            {isGK ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Tallas</Text>
-                <View style={styles.tallasGrid}>
-                  {[
-                    ["Guantes", currentUser.tallaGuantes],
-                    ["Guayos", currentUser.tallaGuayos],
-                    ["Camisa", currentUser.tallaCamisa],
-                    ["Licra", currentUser.tallaLicra],
-                    ["Pantaloneta", currentUser.tallaPantaloneta],
-                  ].map(([k, v]) =>
-                    v ? (
-                      <View key={k} style={styles.tallaChip}>
-                        <Text style={styles.tallaChipLabel}>{k}</Text>
-                        <Text style={styles.tallaChipVal}>{v}</Text>
-                      </View>
-                    ) : null,
-                  )}
-                </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Tallas</Text>
+              <View style={styles.tallasGrid}>
+                {(isGK
+                  ? [
+                      ["Guantes", (currentUser as any).tallaGuantes],
+                      ["Guayos", (currentUser as any).tallaGuayos],
+                      ["Camisa", (currentUser as any).tallaCamisa],
+                      ["Licra", (currentUser as any).tallaLicra],
+                      ["Pantaloneta", (currentUser as any).tallaPantaloneta],
+                    ]
+                  : [
+                      ["Guayos", (currentUser as any).tallaGuayos],
+                      ["Camisa", (currentUser as any).tallaCamisa],
+                      ["Licra", (currentUser as any).tallaLicra],
+                      ["Pantaloneta", (currentUser as any).tallaPantaloneta],
+                    ]
+                )
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <View key={k} style={styles.tallaChip}>
+                      <Text style={styles.tallaChipLabel}>{k}</Text>
+                      <Text style={styles.tallaChipVal}>{v}</Text>
+                    </View>
+                  ))}
+                {!isGK && !(currentUser as any).tallaGuayos && (
+                  <Text style={styles.noTallas}>Sin tallas registradas</Text>
+                )}
               </View>
-            ) : (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Tallas</Text>
-                <View style={styles.tallasGrid}>
-                  {[
-                    ["Guayos", currentUser.tallaGuayos],
-                    ["Camisa", currentUser.tallaCamisa],
-                    ["Licra", currentUser.tallaLicra],
-                    ["Pantaloneta", currentUser.tallaPantaloneta],
-                  ].map(([k, v]) =>
-                    v ? (
-                      <View key={k} style={styles.tallaChip}>
-                        <Text style={styles.tallaChipLabel}>{k}</Text>
-                        <Text style={styles.tallaChipVal}>{v}</Text>
-                      </View>
-                    ) : null,
-                  )}
-                </View>
-              </View>
-            )}
+            </View>
           </View>
         )}
 
-        {/* ── HISTORIAL ── */}
         {tab === "historial" && (
           <View>
             <Text style={styles.sectionTitle}>Filtrar por fecha</Text>
@@ -402,7 +425,7 @@ export default function Profile() {
               ❌ Cancelados ({cancelled.length})
             </Text>
             {cancelled.length === 0 && (
-              <Text style={styles.emptyText}>Sin servicios cancelados</Text>
+              <Text style={styles.emptyText}>Sin cancelados</Text>
             )}
             {cancelled.map((s) => (
               <View
@@ -431,6 +454,12 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0a0a0f" },
+  center: {
+    flex: 1,
+    backgroundColor: "#0a0a0f",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -444,7 +473,25 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   backText: { color: "#00ff87", fontSize: 22, fontWeight: "700" },
   headerTitle: { fontSize: 17, fontWeight: "800", color: "#f0ede8" },
-  logoutText: { color: "#555", fontSize: 13 },
+  logoutBtn: {
+    borderWidth: 1,
+    borderColor: "#2a2a35",
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  logoutText: { color: "#888", fontSize: 12 },
+  notifBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    margin: 12,
+    padding: 14,
+    borderRadius: 8,
+    gap: 10,
+  },
+  notifText: { flex: 1, fontSize: 13, fontWeight: "600", lineHeight: 18 },
+  notifClose: { padding: 4 },
+  notifCloseText: { color: "#888", fontSize: 16 },
   tabs: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -495,7 +542,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2a2a35",
   },
-  editBadgeText: { fontSize: 12 },
   profileName: { fontSize: 20, fontWeight: "800", color: "#f0ede8" },
   profileRole: { fontSize: 13, color: "#555", marginTop: 4 },
   profileCity: { fontSize: 12, color: "#444", marginTop: 2 },
@@ -547,10 +593,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#16161f",
     borderRadius: 8,
     padding: 10,
-    borderWidth: 1,
-    borderColor: "#2a2a35",
     alignItems: "center",
     minWidth: 70,
+    borderWidth: 1,
+    borderColor: "#2a2a35",
   },
   tallaChipLabel: {
     fontSize: 9,
@@ -564,6 +610,7 @@ const styles = StyleSheet.create({
     color: "#00ff87",
     marginTop: 2,
   },
+  noTallas: { color: "#444", fontSize: 12 },
   filterRow: { flexDirection: "row", gap: 12, marginBottom: 8 },
   filterLabel: {
     fontSize: 9,
