@@ -85,6 +85,15 @@ export default function AdminDashboard() {
     setActing(true);
     try {
       console.log("Aprobando usuario:", user.id);
+      // Verificar token activo
+      const { auth } = await import("../../lib/firebase");
+      const token = await auth.currentUser?.getIdToken(true);
+      console.log(
+        "Token activo:",
+        !!token,
+        "UID admin:",
+        auth.currentUser?.uid,
+      );
       const ref = doc(db, "users", user.id);
       await updateDoc(ref, {
         registrationStatus: "approved",
