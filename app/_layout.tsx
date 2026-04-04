@@ -1,5 +1,5 @@
 // app/_layout.tsx
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useAppStore } from "../store/appStore";
@@ -7,43 +7,48 @@ import { useAppStore } from "../store/appStore";
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const mounted = useRef(false);
+  const pathname = usePathname();
   const { currentUser, authLoading, initAuth } = useAppStore();
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMounted = useRef(false);
 
   useEffect(() => {
-    mounted.current = true;
+    isMounted.current = true;
     initAuth();
     return () => {
-      mounted.current = false;
+      isMounted.current = false;
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
     };
   }, []);
 
   useEffect(() => {
-    if (!mounted.current) return;
     if (authLoading) return;
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
 
-    const inApp =
-      segments[0] === "player" ||
-      segments[0] === "goalkeeper" ||
-      segments[0] === "profile" ||
-      segments[0] === "admin";
+    redirectTimer.current = setTimeout(() => {
+      if (!isMounted.current) return;
 
-    // Pequeño delay para evitar state update en componente no montado
-    const timer = setTimeout(() => {
-      if (!mounted.current) return;
+      const protectedRoutes = ["player", "goalkeeper", "profile", "admin"];
+      const inApp = protectedRoutes.includes(segments[0] as string);
+      const isAuthRoute =
+        !segments[0] || segments[0] === "login" || segments[0] === "register";
+
       if (!currentUser && inApp) {
         router.replace("/" as any);
-      } else if (currentUser && !inApp) {
+      } else if (currentUser && isAuthRoute) {
         router.replace(
           currentUser.role === "player"
             ? ("/player/dashboard" as any)
             : ("/goalkeeper/dashboard" as any),
         );
       }
-    }, 50);
+      // Si está en perfil u otra ruta válida con sesión → no redirigir
+    }, 150);
 
-    return () => clearTimeout(timer);
-  }, [currentUser, authLoading]);
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    };
+  }, [currentUser?.id, authLoading, segments[0]]);
 
   if (authLoading) {
     return (
