@@ -37,7 +37,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.keepers.app",
       "config": {
-        "googleMapsApiKey": "TU_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el seguimiento del portero.",
