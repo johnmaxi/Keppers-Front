@@ -7,11 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0a0a0f"
-    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -30,26 +25,32 @@
         "ACCESS_BACKGROUND_LOCATION",
         "NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "VIBRATE"
       ]
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.keepers.app",
       "config": {
-        "googleMapsApiKey": "TU_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para el seguimiento del portero.",
-        "NSLocationAlwaysUsageDescription": "Necesitamos tu ubicación para el seguimiento del portero."
+        "NSLocationWhenInUseUsageDescription": "Keeperz necesita tu ubicación para el seguimiento del portero.",
+        "NSLocationAlwaysUsageDescription": "Keeperz necesita tu ubicación para el seguimiento del portero."
       }
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0a0f"
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -64,11 +65,6 @@
           "locationAlwaysAndWhenInUsePermission": "Keeperz necesita tu ubicación para el seguimiento en tiempo real del portero."
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "b70403db-47b2-45db-a224-4a201216ccfa"
-      }
-    }
+    ]
   }
 }

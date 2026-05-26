@@ -169,6 +169,40 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()}) y se acredi
     in_progress: "En progreso", completed: "Completado", cancelled: "Cancelado",
   };
 
+  // Bloquear portero no aprobado
+  const regStatus = (currentUser as any)?.registrationStatus;
+  if (regStatus === "pending" || regStatus === "rejected") {
+    return (
+      <View style={styles.root}>
+        <StatusBar style="light" />
+        <View style={styles.header}>
+          <View style={styles.logoRow}>
+            <View style={styles.logoIcon}><Text style={styles.logoEmoji}>🧤</Text></View>
+            <Text style={styles.logoText}>Keep<Text style={styles.green}>ers</Text></Text>
+          </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Salir</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.blockedBox}>
+          {regStatus === "pending" ? (
+            <>
+              <Text style={styles.blockedEmoji}>⏳</Text>
+              <Text style={styles.blockedTitle}>Registro en revisión</Text>
+              <Text style={styles.blockedText}>{"Tu registro está siendo revisado.\n\nRecibirás notificación al ser aprobado.\nMáximo 24 horas."}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.blockedEmoji}>❌</Text>
+              <Text style={styles.blockedTitle}>Registro rechazado</Text>
+              <Text style={styles.blockedText}>{"Tu registro fue rechazado.\n\nMotivo: "}{(currentUser as any)?.registrationNote || "Sin motivo especificado"}{"\n\nContacta: soporte@keeperz.app"}</Text>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -528,6 +562,10 @@ const styles = StyleSheet.create({
   btnCancel:         { borderWidth:1.5, borderColor:"#ff4757", borderRadius:4, padding:10, alignItems:"center", marginTop:8 },
   btnCancelText:     { color:"#ff4757", fontSize:12, fontWeight:"600" },
   logoutBtn:         { paddingHorizontal:8, paddingVertical:4, borderWidth:1, borderColor:"#2a2a35", borderRadius:4 },
+  blockedBox:        { flex:1, alignItems:"center", justifyContent:"center", padding:32 },
+  blockedEmoji:      { fontSize:52, marginBottom:16 },
+  blockedTitle:      { fontSize:20, fontWeight:"800", color:"#f0ede8", marginBottom:12, textAlign:"center" },
+  blockedText:       { fontSize:14, color:"#666", textAlign:"center", lineHeight:22 },
   empty:             { alignItems:"center", paddingVertical:50 },
   emptyEmoji:        { fontSize:42, marginBottom:10 },
   emptyText:         { color:"#444", fontSize:14, marginBottom:16 },
