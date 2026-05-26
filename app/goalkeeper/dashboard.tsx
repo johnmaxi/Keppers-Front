@@ -255,9 +255,23 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()}) y se acredi
                           </TouchableOpacity>
                         ))}
                       </View>
-                      <Text style={styles.label}>VALOR TOTAL DEL SERVICIO (COP)</Text>
-                      <TextInput style={styles.input} keyboardType="numeric" placeholderTextColor="#444"
-                        placeholder={String(BASE)} value={f.tarifa} onChangeText={(v) => sf(svc.id,{tarifa:v})} />
+                      <Text style={styles.label}>
+                        VALOR TOTAL DEL SERVICIO (COP){isC ? "" : " · Precio sugerido: $30.000"}
+                      </Text>
+                      <TextInput
+                        style={[styles.input, !isC && styles.inputLocked]}
+                        keyboardType="numeric"
+                        placeholderTextColor="#444"
+                        placeholder="$30.000 sugerido"
+                        value={f.tarifa}
+                        onChangeText={(v) => isC ? sf(svc.id,{tarifa:v}) : null}
+                        editable={isC}
+                      />
+                      {!isC && (
+                        <Text style={styles.lockHint}>
+                          🔒 El valor en oferta directa es el precio de referencia. Usa contraoferta para negociar.
+                        </Text>
+                      )}
                       {isC && (
                         <>
                           <Text style={styles.label}>HORAS PROPUESTAS</Text>
@@ -387,10 +401,7 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()}) y se acredi
                       </View>
                       <Text style={styles.actionHint}>Al terminar el partido, confirma el pago y finaliza.</Text>
                       <TouchableOpacity style={styles.btnPayment} onPress={() => confirmPaymentReceived(svc.id)}>
-                        <Text style={styles.btnPaymentText}>💰 Confirmar pago recibido</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.btnEnd, { marginTop: 8 }]} onPress={() => endService(svc.id)}>
-                        <Text style={styles.btnEndText}>■  Finalizar sin confirmar pago</Text>
+                        <Text style={styles.btnPaymentText}>💰 Confirmar pago y finalizar</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -483,6 +494,8 @@ const styles = StyleSheet.create({
   horaBtnText:       { color:"#555", fontWeight:"700", fontSize:12 },
   horaBtnTextActive: { color:"#00ff87" },
   totalPreview:      { fontSize:12, color:"#777", marginTop:10 },
+  inputLocked:       { backgroundColor:"#0f0f18", borderColor:"#1e1e2a", color:"#555" },
+  lockHint:          { fontSize:10, color:"#555", fontStyle:"italic", marginTop:4 },
   btnPrimary:        { backgroundColor:"#00ff87", paddingVertical:13, borderRadius:4, alignItems:"center", marginTop:14 },
   btnPrimaryText:    { color:"#0a0a0f", fontWeight:"700", fontSize:14 },
   infoGrid:          { flexDirection:"row", flexWrap:"wrap", gap:10, backgroundColor:"#0f0f18", borderRadius:6, padding:12, marginBottom:10 },

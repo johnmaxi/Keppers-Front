@@ -1,5 +1,5 @@
 // components/constants.ts
-export const BASE = 45000;
+export const BASE = 30000;
 
 export const CIUDADES = [
   "Bogotá","Medellín","Cali","Barranquilla","Cartagena","Cúcuta",
@@ -7,7 +7,7 @@ export const CIUDADES = [
 ];
 
 // Solo Efectivo y Nequi — MercadoPago en Sprint 4
-export const MEDIOS_PAGO = ["Efectivo", "Nequi"];
+export const MEDIOS_PAGO = ["Efectivo", "Nequi / Bancolombia / Llaves"];
 
 export const CANCHAS: Record<string, string[]> = {
   "Bogotá":       ["Cancha El Campín","Cancha Santa Fe","Cancha El Salitre","Otra"],
