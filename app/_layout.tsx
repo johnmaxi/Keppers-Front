@@ -1,25 +1,17 @@
 // app/_layout.tsx
-import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { useAppStore } from "../store/appStore";
+import { View, ActivityIndicator } from "react-native";
 
-const PROTECTED = [
-  "player",
-  "goalkeeper",
-  "profile",
-  "admin",
-  "chat",
-  "map",
-  "rating",
-];
+const PROTECTED = ["player", "goalkeeper", "profile", "admin", "chat", "map", "rating"];
 const AUTH_ONLY = ["", "login", "register"];
 
 export default function RootLayout() {
-  const router = useRouter();
+  const router   = useRouter();
   const segments = useSegments();
   const { currentUser, authLoading, initAuth } = useAppStore();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(false);
 
   useEffect(() => {
@@ -37,8 +29,8 @@ export default function RootLayout() {
 
     timer.current = setTimeout(() => {
       if (!mounted.current) return;
-      const seg0 = (segments[0] as string) ?? "";
-      const inApp = PROTECTED.includes(seg0);
+      const seg0   = (segments[0] as string) ?? "";
+      const inApp  = PROTECTED.includes(seg0);
       const isAuth = AUTH_ONLY.includes(seg0);
 
       if (!currentUser && inApp) {
@@ -54,21 +46,12 @@ export default function RootLayout() {
       }
     }, 150);
 
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
+    return () => { if (timer.current) clearTimeout(timer.current); };
   }, [currentUser?.id, authLoading, segments[0]]);
 
   if (authLoading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#0a0a0f",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <View style={{ flex: 1, backgroundColor: "#0a0a0f", alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator color="#00ff87" size="large" />
       </View>
     );
@@ -82,10 +65,10 @@ export default function RootLayout() {
       <Stack.Screen name="player/dashboard" />
       <Stack.Screen name="goalkeeper/dashboard" />
       <Stack.Screen name="admin/dashboard" />
-      <Stack.Screen name="profile/index" />
-      <Stack.Screen name="chat/index" />
-      <Stack.Screen name="map/index" />
-      <Stack.Screen name="rating/index" />
+      <Stack.Screen name="profile/index" options={{ presentation: "card" }} />
+      <Stack.Screen name="chat/index" options={{ presentation: "card" }} />
+      <Stack.Screen name="map/index" options={{ presentation: "card" }} />
+      <Stack.Screen name="rating/index" options={{ presentation: "card" }} />
     </Stack>
   );
 }
