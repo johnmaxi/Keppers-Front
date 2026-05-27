@@ -262,7 +262,7 @@ export default function ProfileScreen() {
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statVal}>${totalGanado.toLocaleString()}</Text>
-                <Text style={styles.statLabel}>Ganado</Text>
+                <Text style={styles.statLabel}>{isGK ? "Ganado" : "Total pagado"}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={[styles.statVal, { color: "#ffa500" }]}>⭐ {currentUser.rating || 5}</Text>
