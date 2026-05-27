@@ -245,8 +245,12 @@ export default function ProfileScreen() {
               <View style={styles.saldoCard}>
                 <View>
                   <Text style={styles.saldoLabel}>SALDO EN CUENTA</Text>
-                  <Text style={styles.saldoMonto}>${saldo.toLocaleString()} COP</Text>
-                  <Text style={styles.saldoHint}>Se descuenta 15% por servicio completado</Text>
+                  <Text style={[styles.saldoMonto, { color: saldo < 0 ? "#ff4757" : "#00ff87" }]}>
+            {saldo < 0 ? "-$" + Math.abs(saldo).toLocaleString() : "$" + saldo.toLocaleString()} COP
+          </Text>
+                  <Text style={[styles.saldoHint, { color: saldo < -5000 ? "#ff4757" : "#444" }]}>
+                    {saldo < -5000 ? "⚠️ Cuenta bloqueada — recarga para recibir servicios" : "Se descuenta 15% por servicio completado"}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={styles.recargarBtn}

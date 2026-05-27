@@ -6,6 +6,11 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useAppStore } from "../../store/appStore";
+import {
+  showLocalNotification,
+  notifyNewOffer, notifyCounterOffer,
+  notifyServiceCompletedPlayer, notifyServiceCompletedGK,
+} from "../../services/notificationService";
 import { descontarComision } from "../../services/walletService";
 import { BASE } from "../../components/constants";
 
@@ -71,6 +76,16 @@ export default function GoalkeeperDashboard() {
     } else {
       addOffer(svcId, offerData);
     }
+    // Notificar al jugador
+    const svcForNotif = services.find((s) => s.id === svcId);
+    if (svcForNotif?.playerId) {
+      const amount = parseInt(f.tarifa) || BASE;
+      if (isC) {
+        notifyCounterOffer(svcForNotif.playerId, currentUser!.nombre, amount).catch(() => {});
+      } else {
+        notifyNewOffer(svcForNotif.playerId, currentUser!.nombre, amount).catch(() => {});
+      }
+    }
     Alert.alert("✅", isC ? "¡Contraoferta enviada!" : "¡Oferta enviada!");
     setExpanded(null);
     setForms((f) => ({ ...f, [svcId]: undefined as any }));
@@ -124,6 +139,10 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()} COP) para Ke
               useAppStore.setState((s: any) => ({
                 currentUser: s.currentUser ? { ...s.currentUser, saldo: nuevoSaldo } : null
               }));
+              // Notificar jugador y portero
+              if (svc.playerId) notifyServiceCompletedPlayer(svc.playerId).catch(() => {});
+              notifyServiceCompletedGK(currentUser!.id, svc.total || 0).catch(() => {});
+              showLocalNotification("🏁 Servicio completado", "Comisión descontada. ¡Gracias por usar Keepers!").catch(() => {});
               const saldoMsg = nuevoSaldo < 0
                 ? " Tu saldo quedó en -$" + Math.abs(nuevoSaldo).toLocaleString() + " COP. Recarga tu cuenta."
                 : " Saldo actual: $" + nuevoSaldo.toLocaleString() + " COP";

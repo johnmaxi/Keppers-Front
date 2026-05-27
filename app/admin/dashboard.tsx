@@ -86,6 +86,7 @@ export default function AdminDashboard() {
           createdAt: Date.now(),
         },
       });
+      notifyRegistrationStatus(user.id, true).catch(() => {});
       Alert.alert("✅", `${user.nombre} aprobado`);
       setSelected(null);
     } catch (e: any) {
@@ -112,6 +113,7 @@ export default function AdminDashboard() {
           createdAt: Date.now(),
         },
       });
+      notifyRegistrationStatus(user.id, false, note.trim()).catch(() => {});
       Alert.alert("❌", `${user.nombre} rechazado`);
       setSelected(null);
       setNote("");
@@ -131,6 +133,7 @@ export default function AdminDashboard() {
         { text: "✅ Aprobar", onPress: async () => {
           try {
             await aprobarRecarga(r.id, r.userId, r.amount);
+            notifyRecargaStatus(r.userId, true, r.amount).catch(() => {});
             Alert.alert("✅", `Recarga de $${r.amount?.toLocaleString()} aprobada`);
           } catch (e: any) { Alert.alert("Error", e.message); }
         }},
@@ -147,6 +150,7 @@ export default function AdminDashboard() {
         { text: "❌ Rechazar", style: "destructive", onPress: async () => {
           try {
             await rechazarRecarga(r.id, "Comprobante inválido o insuficiente");
+            notifyRecargaStatus(r.userId, false).catch(() => {});
             Alert.alert("❌", "Recarga rechazada");
           } catch (e: any) { Alert.alert("Error", e.message); }
         }},

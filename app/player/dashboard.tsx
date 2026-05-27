@@ -8,6 +8,7 @@ import {
 const MEDIOS_PAGO_LOCAL = ["Efectivo", "Nequi"];
 import { StatusBar } from "expo-status-bar";
 import { useAppStore } from "../../store/appStore";
+import { showLocalNotification } from "../../services/notificationService";
 import { CIUDADES, CANCHAS, MEDIOS_PAGO, BASE, GKS } from "../../components/constants";
 
 // Sin "Pichanga"
@@ -269,6 +270,12 @@ export default function PlayerDashboard() {
                 confirmedGkName: off.gkName, confirmedGkId: off.gkId, total,
               });
               await updateOffer(svcId, offerId, { status: "accepted" });
+              // Notificar al portero
+              try {
+                const { notifyOfferAccepted } = await import("../../services/notificationService");
+                const svcData = services.find((s) => s.id === svcId);
+                await notifyOfferAccepted(off.gkId, currentUser!.nombre, svcData?.tipoPartido || "servicio");
+              } catch {}
               Alert.alert("✅", `¡${off.gkName} confirmado!`);
             } catch (e: any) {
               Alert.alert("Error", e?.message || "No se pudo confirmar");

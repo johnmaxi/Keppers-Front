@@ -1,5 +1,7 @@
 // app/_layout.tsx
 import { useEffect, useRef } from "react";
+import { registerPushToken } from "../services/notificationService";
+import * as Notifications from "expo-notifications";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useAppStore } from "../store/appStore";
 import { View, ActivityIndicator } from "react-native";
@@ -17,6 +19,10 @@ export default function RootLayout() {
   useEffect(() => {
     mounted.current = true;
     initAuth();
+    // Registrar token de notificaciones
+    if (currentUser?.id) {
+      registerPushToken(currentUser.id).catch(() => {});
+    }
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
