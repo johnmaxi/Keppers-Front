@@ -10,6 +10,7 @@ import * as ImagePicker from "expo-image-picker";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useAppStore } from "../../store/appStore";
+import { listenMovements } from "../../services/walletService";
 
 const STATUS_LABEL: Record<string, string> = {
   pending:  "⏳ Pendiente de aprobación",
@@ -28,6 +29,20 @@ export default function ProfileScreen() {
   const [fechaHasta, setFechaHasta] = useState("");
   const [uploading,  setUploading]  = useState(false);
   const [notification, setNotification] = useState<any>(null);
+  const [movements,    setMovements]    = useState<any[]>([]);
+  const [saldo,        setSaldo]        = useState<number>(0);
+
+  // Cargar movimientos y saldo del portero
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "goalkeeper") return;
+    const unsub = listenMovements(currentUser.id, setMovements);
+    return () => unsub();
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setSaldo((currentUser as any).saldo || 0);
+  }, [currentUser]);
 
   // Verificar si hay notificación pendiente del admin
   useEffect(() => {
@@ -225,6 +240,21 @@ export default function ProfileScreen() {
             </View>
 
             {/* Stats */}
+            {/* Saldo para portero */}
+            {isGK && (
+              <View style={styles.saldoCard}>
+                <View>
+                  <Text style={styles.saldoLabel}>SALDO EN CUENTA</Text>
+                  <Text style={styles.saldoMonto}>${saldo.toLocaleString()} COP</Text>
+                  <Text style={styles.saldoHint}>Se descuenta 15% por servicio completado</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.recargarBtn}
+                  onPress={() => router.push("/recargar" as any)}>
+                  <Text style={styles.recargarBtnText}>+ Recargar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statVal}>${totalGanado.toLocaleString()}</Text>
@@ -386,5 +416,11 @@ const styles = StyleSheet.create({
   histTitle:         { fontSize: 13, fontWeight: "700", color: "#f0ede8" },
   histAmount:        { fontSize: 14, fontWeight: "800", color: "#00ff87" },
   histSub:           { fontSize: 11, color: "#555", marginTop: 2 },
+  saldoCard:         { backgroundColor: "#13131c", borderRadius: 10, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: "rgba(0,255,135,.3)", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  saldoLabel:        { fontSize: 10, fontWeight: "700", letterSpacing: 1.5, color: "#555", marginBottom: 4 },
+  saldoMonto:        { fontSize: 24, fontWeight: "800", color: "#00ff87" },
+  saldoHint:         { fontSize: 10, color: "#444", marginTop: 2 },
+  recargarBtn:       { backgroundColor: "#00ff87", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  recargarBtnText:   { color: "#0a0a0f", fontWeight: "800", fontSize: 13 },
   emptyText:         { color: "#444", fontSize: 13, marginBottom: 8 },
 });

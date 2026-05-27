@@ -4,7 +4,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useAppStore } from "../store/appStore";
 import { View, ActivityIndicator } from "react-native";
 
-const PROTECTED = ["player", "goalkeeper", "profile", "admin", "chat", "map", "rating"];
+const PROTECTED = ["player", "goalkeeper", "profile", "admin", "chat", "map", "rating", "recargar"];
 const AUTH_ONLY = ["", "login", "register"];
 
 export default function RootLayout() {

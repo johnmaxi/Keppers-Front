@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useAppStore } from "../../store/appStore";
+import { descontarComision } from "../../services/walletService";
 import { BASE } from "../../components/constants";
 
 const TABS = [
@@ -117,7 +118,9 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()}) y se acredi
                 gkPaymentConfirmed: true,
                 completedAt: new Date().toISOString(),
               } as any);
-              Alert.alert("✅ ¡Pago confirmado!", `Se acreditaron $${netAmount.toLocaleString()} COP a tu saldo (descontando 15% de comisión).`);
+              // Descontar comisión del saldo del portero
+              await descontarComision(currentUser!.id, svcId, svc.total || 0);
+              Alert.alert("✅ ¡Pago confirmado!", `Se descontaron $${commission.toLocaleString()} COP de tu saldo como comisión (15%). Saldo actual actualizado.`);
             } catch (e: any) {
               Alert.alert("Error", e?.message);
             }
