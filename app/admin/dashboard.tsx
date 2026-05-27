@@ -174,7 +174,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>🛡️ Admin Keeperz</Text>
+          <Text style={styles.headerTitle}>🛡️ Admin Keepers</Text>
           <Text style={styles.headerSub}>Panel de administración</Text>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>

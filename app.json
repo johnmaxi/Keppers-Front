@@ -2,7 +2,7 @@
   "expo": {
     "name": "Keepers",
     "slug": "keepers-app",
-    "scheme": "keeperz",
+    "scheme": "keepers",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -25,9 +25,7 @@
         "ACCESS_BACKGROUND_LOCATION",
         "NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "VIBRATE"
       ]
     },
     "ios": {
@@ -67,11 +65,6 @@
           "locationAlwaysAndWhenInUsePermission": "Keeperz necesita tu ubicación para el seguimiento en tiempo real del portero."
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "b3b494b8-8b8c-4596-805a-ccecb45fa2fb"
-      }
-    }
+    ]
   }
 }

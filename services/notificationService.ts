@@ -38,7 +38,7 @@ export async function registerPushToken(userId: string): Promise<string | null> 
   }
 
   const token = (await Notifications.getExpoPushTokenAsync({
-    projectId: "keeperz-app",
+    projectId: "Keepers-app",
   })).data;
 
   await updateDoc(doc(db, "users", userId), { pushToken: token });

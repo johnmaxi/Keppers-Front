@@ -107,7 +107,7 @@ export default function GoalkeeperDashboard() {
       "💰 Confirmar pago recibido",
       `¿Recibiste el pago de $${(svc.total || 0).toLocaleString()} COP?
 
-Se descontará el 15% de comisión ($${commission.toLocaleString()} COP) para Keeperz.`,
+Se descontará el 15% de comisión ($${commission.toLocaleString()} COP) para Keepers.`,
       [
         { text: "No", style: "cancel" },
         {
@@ -231,7 +231,7 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()} COP) para Ke
             <>
               <Text style={styles.blockedEmoji}>❌</Text>
               <Text style={styles.blockedTitle}>Registro rechazado</Text>
-              <Text style={styles.blockedText}>{"Tu registro fue rechazado.\n\nMotivo: "}{(currentUser as any)?.registrationNote || "Sin motivo especificado"}{"\n\nContacta: soporte@keeperz.app"}</Text>
+              <Text style={styles.blockedText}>{"Tu registro fue rechazado.\n\nMotivo: "}{(currentUser as any)?.registrationNote || "Sin motivo especificado"}{"\n\nContacta: soporte@Keepers.app"}</Text>
             </>
           )}
         </View>
