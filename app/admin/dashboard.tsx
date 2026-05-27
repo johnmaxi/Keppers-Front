@@ -35,7 +35,10 @@ export default function AdminDashboard() {
   const [selected, setSelected] = useState<PendingUser | null>(null);
   const [note,     setNote]     = useState("");
   const [acting,   setActing]   = useState(false);
-  const [recargas, setRecargas] = useState<any[]>([]);
+  const [recargas,          setRecargas]          = useState<any[]>([]);
+  const [recargasAprobadas, setRecargasAprobadas] = useState<any[]>([]);
+  const [recargasRechazadas,setRecargasRechazadas]= useState<any[]>([]);
+  const [recargaTab,        setRecargaTab]        = useState<"pending"|"approved"|"rejected">("pending");
 
   useEffect(() => {
     if (currentUser && currentUser.role !== "admin") {
@@ -59,10 +62,12 @@ export default function AdminDashboard() {
     return () => unsub();
   }, [tab]);
 
-  // Recargas pendientes
+  // Recargas
   useEffect(() => {
-    const unsub = listenRecargas("pending", setRecargas);
-    return () => unsub();
+    const unsub1 = listenRecargas("pending",  setRecargas);
+    const unsub2 = listenRecargas("approved", setRecargasAprobadas);
+    const unsub3 = listenRecargas("rejected", setRecargasRechazadas);
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
 
   const approve = async (user: PendingUser) => {
@@ -249,13 +254,33 @@ export default function AdminDashboard() {
 
       {/* ── RECARGAS ── */}
       {mainTab === "recargas" && (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-          {recargas.length === 0 && (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>Sin recargas pendientes ✅</Text>
-            </View>
+        <>
+          <View style={styles.recargaTabs}>
+            {([
+              { key: "pending",  label: `Pendientes (${recargas.length})`,          color: "#ffa500" },
+              { key: "approved", label: `Aprobadas (${recargasAprobadas.length})`,  color: "#00ff87" },
+              { key: "rejected", label: `Rechazadas (${recargasRechazadas.length})`,color: "#ff4757" },
+            ] as const).map((t) => (
+              <TouchableOpacity key={t.key}
+                style={[styles.recargaTab, recargaTab === t.key && { borderBottomColor: t.color }]}
+                onPress={() => setRecargaTab(t.key)}>
+                <Text style={[styles.recargaTabText, recargaTab === t.key && { color: t.color }]}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+          {recargaTab === "pending" && recargas.length === 0 && (
+            <View style={styles.empty}><Text style={styles.emptyText}>Sin recargas pendientes ✅</Text></View>
           )}
-          {recargas.map((r) => (
+          {recargaTab === "approved" && recargasAprobadas.length === 0 && (
+            <View style={styles.empty}><Text style={styles.emptyText}>Sin recargas aprobadas</Text></View>
+          )}
+          {recargaTab === "rejected" && recargasRechazadas.length === 0 && (
+            <View style={styles.empty}><Text style={styles.emptyText}>Sin recargas rechazadas</Text></View>
+          )}
+          {(recargaTab === "pending" ? recargas : recargaTab === "approved" ? recargasAprobadas : recargasRechazadas).map((r) => (
             <View key={r.id} style={styles.card}>
               <View style={styles.cardRow}>
                 <View style={{ flex: 1 }}>
@@ -276,17 +301,28 @@ export default function AdminDashboard() {
                   </TouchableOpacity>
                 )}
               </View>
-              <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.btnApprove} onPress={() => handleAprobarRecarga(r)}>
-                  <Text style={styles.btnApproveText}>✅ Aprobar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnReject} onPress={() => handleRechazarRecarga(r)}>
-                  <Text style={styles.btnRejectText}>❌ Rechazar</Text>
-                </TouchableOpacity>
-              </View>
+              {recargaTab === "pending" && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.btnApprove} onPress={() => handleAprobarRecarga(r)}>
+                    <Text style={styles.btnApproveText}>✅ Aprobar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.btnReject} onPress={() => handleRechazarRecarga(r)}>
+                    <Text style={styles.btnRejectText}>❌ Rechazar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {recargaTab !== "pending" && (
+                <View style={[styles.statusBadgeBox, { backgroundColor: recargaTab === "approved" ? "rgba(0,255,135,.1)" : "rgba(255,71,87,.1)" }]}>
+                  <Text style={[styles.statusBadgeText, { color: recargaTab === "approved" ? "#00ff87" : "#ff4757" }]}>
+                    {recargaTab === "approved" ? "✅ Aprobada" : "❌ Rechazada"}
+                    {r.adminNote ? ` · ${r.adminNote}` : ""}
+                  </Text>
+                </View>
+              )}
             </View>
           ))}
         </ScrollView>
+        </>
       )}
 
       {/* ── Modal detalle portero ── */}
@@ -446,4 +482,9 @@ const styles = StyleSheet.create({
   noteInput:         { backgroundColor: "#16161f", borderWidth: 1, borderColor: "#2a2a35", color: "#f0ede8", padding: 12, borderRadius: 6, fontSize: 13, minHeight: 80, marginBottom: 12 },
   btnClose:          { borderWidth: 1, borderColor: "#2a2a35", paddingVertical: 12, borderRadius: 6, alignItems: "center", marginTop: 8 },
   btnCloseText:      { color: "#888", fontSize: 14 },
+  recargaTabs:       { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#1e1e2a" },
+  recargaTab:        { flex: 1, paddingVertical: 10, alignItems: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
+  recargaTabText:    { color: "#555", fontSize: 10, fontWeight: "700" },
+  statusBadgeBox:    { padding: 10, borderRadius: 6, marginTop: 8 },
+  statusBadgeText:   { fontSize: 12, fontWeight: "700" },
 });

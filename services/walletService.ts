@@ -31,14 +31,17 @@ export async function descontarComision(
   userId:    string,
   serviceId: string,
   total:     number,
-): Promise<void> {
+): Promise<number> {
   const comision  = Math.round(total * 0.15);
   const userRef   = doc(db, "users", userId);
   const userSnap  = await getDoc(userRef);
   if (!userSnap.exists()) return;
 
-  const saldoActual = userSnap.data().saldo || 0;
-  const nuevoSaldo  = Math.max(0, saldoActual - comision);
+  const data        = userSnap.data();
+  // Si no tiene campo saldo, inicializarlo en 0 antes de descontar
+  const saldoActual = typeof data.saldo === "number" ? data.saldo : 0;
+  // El saldo puede quedar negativo si no tiene suficiente — se registra la deuda
+  const nuevoSaldo  = saldoActual - comision;
 
   await updateDoc(userRef, { saldo: nuevoSaldo });
 
@@ -53,6 +56,7 @@ export async function descontarComision(
     saldoAfter:  nuevoSaldo,
     createdAt:   serverTimestamp(),
   });
+  return nuevoSaldo;
 }
 
 // ── Solicitar recarga ─────────────────────────────────────────────────────────
