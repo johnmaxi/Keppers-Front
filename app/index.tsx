@@ -10,8 +10,8 @@ import { StatusBar } from "expo-status-bar";
 export default function Landing() {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
-  const fadeAnim  = new Animated.Value(0);
-  const fadeMain  = new Animated.Value(0);
+  const fadeAnim  = useState(new Animated.Value(0))[0];
+  const fadeMain  = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     // Fade in AreloTech logo
@@ -106,6 +106,9 @@ const styles = StyleSheet.create({
   splashContainer: { flex: 1, backgroundColor: "#0a0a0f", alignItems: "center", justifyContent: "center" },
   splashContent:   { alignItems: "center" },
   areloLogo:       { width: 260, height: 80, marginBottom: 16 },
+  areloTextLogo:   { flexDirection: "row", marginBottom: 16 },
+  areloTextA:      { fontSize: 42, fontWeight: "800", color: "#6C63FF" },
+  areloTextTech:   { fontSize: 42, fontWeight: "800", color: "#00CFFF" },
   splashTagline:   { color: "#444", fontSize: 13, letterSpacing: 1 },
   container:       { flex: 1, backgroundColor: "#0a0a0f", padding: 24, paddingTop: 70, justifyContent: "space-between" },
   hero:            { alignItems: "center" },
