@@ -25,9 +25,7 @@
         "ACCESS_BACKGROUND_LOCATION",
         "NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "VIBRATE"
       ]
     },
     "ios": {
@@ -58,7 +56,16 @@
         {
           "icon": "./assets/images/icon.png",
           "color": "#00ff87",
-          "sounds": []
+          "sounds": [
+            "./assets/sounds/nueva_solicitud.wav",
+            "./assets/sounds/oferta_recibida.wav",
+            "./assets/sounds/contraoferta.wav",
+            "./assets/sounds/aceptado.wav",
+            "./assets/sounds/completado.wav",
+            "./assets/sounds/aprobado.wav",
+            "./assets/sounds/rechazado.wav",
+            "./assets/sounds/recarga.wav"
+          ]
         }
       ],
       [
@@ -67,11 +74,6 @@
           "locationAlwaysAndWhenInUsePermission": "Keeperz necesita tu ubicación para el seguimiento en tiempo real del portero."
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "b3b494b8-8b8c-4596-805a-ccecb45fa2fb"
-      }
-    }
+    ]
   }
 }

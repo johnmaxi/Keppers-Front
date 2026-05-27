@@ -25,14 +25,27 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     if (finalStatus !== "granted") return null;
 
     if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("keepers-default", {
-        name:             "Keepers",
-        importance:       Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor:       "#00ff87",
-        sound:            "default",
-        enableVibrate:    true,
-      });
+      const channels = [
+        { id: "keepers-default",     name: "Keepers General",    sound: "default",          importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-solicitud",   name: "Nuevas Solicitudes", sound: "nueva_solicitud",  importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-oferta",      name: "Ofertas",            sound: "oferta_recibida",  importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-contraoferta",name: "Contraofertas",      sound: "contraoferta",     importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-aceptado",    name: "Aceptados",          sound: "aceptado",         importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-completado",  name: "Completados",        sound: "completado",       importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-aprobado",    name: "Aprobaciones",       sound: "aprobado",         importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-rechazado",   name: "Rechazos",           sound: "rechazado",        importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-recarga",     name: "Recargas",           sound: "recarga",          importance: Notifications.AndroidImportance.MAX },
+      ];
+      for (const ch of channels) {
+        await Notifications.setNotificationChannelAsync(ch.id, {
+          name:             ch.name,
+          importance:       ch.importance,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor:       "#00ff87",
+          sound:            ch.sound,
+          enableVibrate:    true,
+        });
+      }
     }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
@@ -55,15 +68,41 @@ export async function getUserPushToken(userId: string): Promise<string | null> {
 }
 
 // ── Enviar push via Expo ──────────────────────────────────────────────────────
-async function sendPush(token: string, title: string, body: string, data?: object): Promise<void> {
+async function sendPush(
+  token:     string,
+  title:     string,
+  body:      string,
+  data?:     object,
+  sound?:    string,
+  channelId?: string,
+): Promise<void> {
   if (!token) return;
   try {
-    await fetch("https://exp.host/--/api/v2/push/send", {
+    const payload: any = {
+      to:         token,
+      title,
+      body,
+      data:       data || {},
+      sound:      sound || "default",
+      priority:   "high",
+      channelId:  channelId || "keepers-default",
+      ttl:        3600,
+      badge:      1,
+    };
+    const res = await fetch("https://exp.host/--/api/v2/push/send", {
       method:  "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ to: token, title, body, data: data || {}, sound: "default", priority: "high" }),
+      headers: {
+        "Content-Type":  "application/json",
+        "Accept":        "application/json",
+        "Accept-Encoding": "gzip, deflate",
+      },
+      body: JSON.stringify(payload),
     });
-  } catch {}
+    const result = await res.json();
+    if (result?.data?.status === "error") {
+      console.error("Push error:", result.data.message);
+    }
+  } catch (e) { console.error("sendPush error:", e); }
 }
 
 // ── Notificación local (funciona en Expo Go para testing) ─────────────────────
@@ -81,28 +120,28 @@ export async function showLocalNotification(title: string, body: string): Promis
 // ── Todas las funciones de notificación ──────────────────────────────────────
 export async function notifyNewOffer(playerId: string, gkName: string, amount: number): Promise<void> {
   const token = await getUserPushToken(playerId);
-  if (token) await sendPush(token, "🧤 Nueva oferta recibida", `${gkName} quiere ser tu portero por $${amount.toLocaleString()} COP`, { screen: "player/dashboard" });
+  if (token) await sendPush(token, "🧤 Nueva oferta recibida", `${gkName} quiere ser tu portero por $${amount.toLocaleString()} COP`, { screen: "player/dashboard" }, "oferta_recibida", "keepers-oferta");
 }
 
 export async function notifyCounterOffer(playerId: string, gkName: string, amount: number): Promise<void> {
   const token = await getUserPushToken(playerId);
-  if (token) await sendPush(token, "🔄 Contraoferta recibida", `${gkName} propone $${amount.toLocaleString()} COP`, { screen: "player/dashboard" });
+  if (token) await sendPush(token, "🔄 Contraoferta recibida", `${gkName} propone $${amount.toLocaleString()} COP`, { screen: "player/dashboard" }, "contraoferta", "keepers-contraoferta");
 }
 
 export async function notifyOfferAccepted(gkId: string, playerName: string, tipoPartido: string): Promise<void> {
   const token = await getUserPushToken(gkId);
-  if (token) await sendPush(token, "✅ ¡Oferta aceptada!", `${playerName} aceptó tu oferta para ${tipoPartido}`, { screen: "goalkeeper/dashboard" });
+  if (token) await sendPush(token, "✅ ¡Oferta aceptada!", `${playerName} aceptó tu oferta para ${tipoPartido}`, { screen: "goalkeeper/dashboard" }, "aceptado", "keepers-aceptado");
 }
 
 export async function notifyServiceCompletedPlayer(playerId: string): Promise<void> {
   const token = await getUserPushToken(playerId);
-  if (token) await sendPush(token, "🏁 Servicio finalizado", "El portero confirmó el pago. ¡Califica tu experiencia!", { screen: "player/dashboard" });
+  if (token) await sendPush(token, "🏁 Servicio finalizado", "El portero confirmó el pago. ¡Califica tu experiencia!", { screen: "player/dashboard" }, "completado", "keepers-completado");
 }
 
 export async function notifyServiceCompletedGK(gkId: string, total: number): Promise<void> {
   const token = await getUserPushToken(gkId);
   const comision = Math.round(total * 0.15);
-  if (token) await sendPush(token, "🏁 Servicio completado", `Se descontaron $${comision.toLocaleString()} COP de comisión.`, { screen: "profile" });
+  if (token) await sendPush(token, "🏁 Servicio completado", `Se descontaron $${comision.toLocaleString()} COP de comisión.`, { screen: "profile" }, "completado", "keepers-completado");
 }
 
 export async function notifyRegistrationStatus(userId: string, approved: boolean, note?: string): Promise<void> {
@@ -110,7 +149,7 @@ export async function notifyRegistrationStatus(userId: string, approved: boolean
   if (token) await sendPush(token,
     approved ? "✅ Registro aprobado" : "❌ Registro rechazado",
     approved ? "¡Tu cuenta fue aprobada! Ya puedes recibir solicitudes." : `Motivo: ${note || "Ver app"}`,
-    { screen: "goalkeeper/dashboard" }
+    { screen: "goalkeeper/dashboard" }, approved ? "aprobado" : "rechazado", approved ? "keepers-aprobado" : "keepers-rechazado"
   );
 }
 
@@ -119,11 +158,11 @@ export async function notifyRecargaStatus(userId: string, approved: boolean, amo
   if (token) await sendPush(token,
     approved ? "💰 Recarga aprobada" : "❌ Recarga rechazada",
     approved ? `Se acreditaron $${(amount || 0).toLocaleString()} COP a tu cuenta` : "Comprobante rechazado. Contacta soporte.",
-    { screen: "recargar" }
+    { screen: "recargar" }, approved ? "recarga" : "rechazado", approved ? "keepers-recarga" : "keepers-rechazado"
   );
 }
 
 export async function notifyNewService(gkId: string, ciudad: string, tipoPartido: string): Promise<void> {
   const token = await getUserPushToken(gkId);
-  if (token) await sendPush(token, "⚽ Nueva solicitud disponible", `${tipoPartido} en ${ciudad}`, { screen: "goalkeeper/dashboard" });
+  if (token) await sendPush(token, "⚽ Nueva solicitud disponible", `${tipoPartido} en ${ciudad}`, { screen: "goalkeeper/dashboard" }, "nueva_solicitud", "keepers-solicitud");
 }
