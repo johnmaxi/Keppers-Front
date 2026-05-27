@@ -120,6 +120,10 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()} COP) para Ke
               } as any);
               // Descontar comisión del saldo del portero
               const nuevoSaldo = await descontarComision(currentUser!.id, svcId, svc.total || 0);
+              // Actualizar saldo en store inmediatamente
+              useAppStore.setState((s: any) => ({
+                currentUser: s.currentUser ? { ...s.currentUser, saldo: nuevoSaldo } : null
+              }));
               const saldoMsg = nuevoSaldo < 0
                 ? " Tu saldo quedó en -$" + Math.abs(nuevoSaldo).toLocaleString() + " COP. Recarga tu cuenta."
                 : " Saldo actual: $" + nuevoSaldo.toLocaleString() + " COP";
@@ -231,7 +235,7 @@ Se descontará el 15% de comisión ($${commission.toLocaleString()} COP) para Ke
             <>
               <Text style={styles.blockedEmoji}>❌</Text>
               <Text style={styles.blockedTitle}>Registro rechazado</Text>
-              <Text style={styles.blockedText}>{"Tu registro fue rechazado.\n\nMotivo: "}{(currentUser as any)?.registrationNote || "Sin motivo especificado"}{"\n\nContacta: soporte@Keepers.app"}</Text>
+              <Text style={styles.blockedText}>{"Tu registro fue rechazado.\n\nMotivo: "}{(currentUser as any)?.registrationNote || "Sin motivo especificado"}{"\n\nContacta: soporte@keepers.app"}</Text>
             </>
           )}
         </View>

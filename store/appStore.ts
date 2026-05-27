@@ -1,5 +1,7 @@
 // store/appStore.ts
 import { create } from "zustand";
+import { onSnapshot, doc } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import {
   AppUser, loginUser, registerUser, logoutUser, onAuthChanged,
 } from "../services/authService";
@@ -50,20 +52,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (user) {
         get().startListening();
         // Escuchar cambios en tiempo real del perfil (saldo, estado, etc.)
-        import("firebase/firestore").then(({ onSnapshot, doc: firestoreDoc }) =>
-          import("../lib/firebase").then(({ db }) => {
-            const userUnsub = onSnapshot(firestoreDoc(db, "users", user.id), (snap) => {
-              if (snap.exists()) {
-                set((s) => ({
-                  currentUser: s.currentUser
-                    ? { ...s.currentUser, ...snap.data(), id: user.id } as any
-                    : null,
-                }));
-              }
-            });
-            set((s) => ({ _unsubs: [...s._unsubs, userUnsub] }));
-          })
-        );
+        const userUnsub = onSnapshot(doc(db, "users", user.id), (snap) => {
+          if (snap.exists()) {
+            set((s) => ({
+              currentUser: s.currentUser
+                ? { ...s.currentUser, ...snap.data(), id: user.id } as any
+                : null,
+            }));
+          }
+        });
+        set((s) => ({ _unsubs: [...s._unsubs, userUnsub] }));
       } else {
         get().stopListening();
         set({ services: [] });
