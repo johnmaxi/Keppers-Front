@@ -74,6 +74,11 @@
           "locationAlwaysAndWhenInUsePermission": "Keeperz necesita tu ubicación para el seguimiento en tiempo real del portero."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b3b494b8-8b8c-4596-805a-ccecb45fa2fb"
+      }
+    }
   }
 }

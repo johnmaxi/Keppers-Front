@@ -8,21 +8,35 @@ const isExpoGo = Constants.appOwnership === "expo";
 
 // ── Registrar token push ──────────────────────────────────────────────────────
 export async function registerPushToken(userId: string): Promise<string | null> {
-  if (isExpoGo) return null;
+  if (isExpoGo) {
+    console.log("Expo Go: push notifications not supported");
+    return null;
+  }
   try {
     const Notifications = await import("expo-notifications");
     const Device        = await import("expo-device");
     const { Platform }  = await import("react-native");
 
-    if (!Device.default.isDevice) return null;
+    console.log("Registering push token for user:", userId);
+    console.log("Is device:", Device.default.isDevice);
+
+    if (!Device.default.isDevice) {
+      console.log("Not a physical device, skipping push token");
+      return null;
+    }
 
     const { status: existing } = await Notifications.getPermissionsAsync();
+    console.log("Current permission status:", existing);
     let finalStatus = existing;
     if (existing !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
+      console.log("New permission status:", status);
     }
-    if (finalStatus !== "granted") return null;
+    if (finalStatus !== "granted") {
+      console.log("Push permission denied");
+      return null;
+    }
 
     if (Platform.OS === "android") {
       const channels = [
@@ -49,11 +63,17 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     }
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    console.log("Using projectId:", projectId);
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    const token = tokenData.data;
+    console.log("Got push token:", token?.substring(0, 30) + "...");
+
     await updateDoc(doc(db, "users", userId), { pushToken: token });
+    console.log("Push token saved to Firestore ✅");
     return token;
   } catch (e) {
-    console.log("Push token registration skipped:", e);
+    console.error("Push token registration FAILED:", e);
     return null;
   }
 }

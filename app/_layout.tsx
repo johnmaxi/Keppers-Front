@@ -18,15 +18,20 @@ export default function RootLayout() {
   useEffect(() => {
     mounted.current = true;
     initAuth();
-    // Registrar token de notificaciones
-    if (currentUser?.id) {
-      registerPushToken(currentUser.id).catch(() => {});
-    }
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+
+  // Registrar token cuando hay usuario autenticado
+  useEffect(() => {
+    if (currentUser?.id) {
+      registerPushToken(currentUser.id)
+        .then((token) => console.log("Token registered:", !!token))
+        .catch(console.error);
+    }
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (authLoading) return;
