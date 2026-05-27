@@ -1,77 +1,68 @@
 // store/appStore.ts
 import { create } from "zustand";
 import {
-  AppUser,
-  loginUser,
-  logoutUser,
-  onAuthChanged,
-  registerUser,
+  AppUser, loginUser, registerUser, logoutUser, onAuthChanged,
 } from "../services/authService";
-import { listenMessages, Message, sendMessage } from "../services/chatService";
+import {
+  Service, Offer,
+  createService, updateService as fbUpdateService,
+  addOffer as fbAddOffer, updateOffer as fbUpdateOffer,
+  listenAvailableServices, listenPlayerServices, listenGoalkeeperServices,
+} from "../services/serviceService";
+import { sendMessage, listenMessages, Message } from "../services/chatService";
 import {
   getUserPushToken,
-  notifyCounterOffer,
-  notifyNewMessage,
-  notifyNewOffer,
-  notifyOfferAccepted,
-  notifyServiceCompleted,
-  notifyServiceStarted,
+  notifyNewOffer, notifyOfferAccepted, notifyCounterOffer,
+  notifyServiceStarted, notifyServiceCompleted, notifyNewMessage,
 } from "../services/notificationService";
-import {
-  createService,
-  addOffer as fbAddOffer,
-  updateOffer as fbUpdateOffer,
-  updateService as fbUpdateService,
-  listenAvailableServices,
-  listenGoalkeeperServices,
-  listenPlayerServices,
-  Offer,
-  Service,
-} from "../services/serviceService";
 
 interface AppState {
-  currentUser: AppUser | null;
-  authLoading: boolean;
-  services: Service[];
-  chats: Record<string, Message[]>;
-  _unsubs: (() => void)[];
+  currentUser:  AppUser | null;
+  authLoading:  boolean;
+  services:     Service[];
+  chats:        Record<string, Message[]>;
+  _unsubs:      (() => void)[];
 
-  initAuth: () => void;
-  login: (email: string, password: string) => Promise<void>;
-  register: (form: any) => Promise<void>;
-  logout: () => Promise<void>;
+  initAuth:       () => void;
+  login:          (email: string, password: string) => Promise<void>;
+  register:       (form: any) => Promise<void>;
+  logout:         () => Promise<void>;
   startListening: () => void;
-  stopListening: () => void;
-  addService: (data: Omit<Service, "id" | "createdAt">) => Promise<void>;
-  updateService: (
-    id: string,
-    patch: Partial<Omit<Service, "id">>,
-  ) => Promise<void>;
-  addOffer: (serviceId: string, offer: Offer) => Promise<void>;
-  updateOffer: (
-    serviceId: string,
-    offerId: string,
-    patch: Partial<Offer>,
-  ) => Promise<void>;
-  listenChat: (serviceId: string) => void;
-  sendMsg: (
-    serviceId: string,
-    msg: Omit<Message, "id" | "createdAt">,
-  ) => Promise<void>;
+  stopListening:  () => void;
+  addService:     (data: Omit<Service, "id" | "createdAt">) => Promise<void>;
+  updateService:  (id: string, patch: Partial<Omit<Service, "id">>) => Promise<void>;
+  addOffer:       (serviceId: string, offer: Offer) => Promise<void>;
+  updateOffer:    (serviceId: string, offerId: string, patch: Partial<Offer>) => Promise<void>;
+  listenChat:     (serviceId: string) => void;
+  sendMsg:        (serviceId: string, msg: Omit<Message, "id" | "createdAt">) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentUser: null,
   authLoading: true,
-  services: [],
-  chats: {},
-  _unsubs: [],
+  services:    [],
+  chats:       {},
+  _unsubs:     [],
 
   initAuth: () => {
-    const unsub = onAuthChanged((user) => {
+    const unsub = onAuthChanged(async (user) => {
       set({ currentUser: user, authLoading: false });
-      if (user) get().startListening();
-      else {
+      if (user) {
+        get().startListening();
+        // Escuchar cambios en tiempo real del perfil del usuario (saldo, etc.)
+        const { onSnapshot, doc } = await import("firebase/firestore");
+        const { db } = await import("../lib/firebase");
+        const userUnsub = onSnapshot(doc(db, "users", user.id), (snap) => {
+          if (snap.exists()) {
+            set((s) => ({
+              currentUser: s.currentUser
+                ? { ...s.currentUser, ...snap.data(), id: user.id }
+                : null
+            }));
+          }
+        });
+        set((s) => ({ _unsubs: [...s._unsubs, userUnsub] }));
+      } else {
         get().stopListening();
         set({ services: [] });
       }
@@ -105,26 +96,28 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (currentUser.role === "player") {
       newUnsubs.push(
-        listenPlayerServices(currentUser.id, (svcs) => set({ services: svcs })),
+        listenPlayerServices(currentUser.id, (svcs) => set({ services: svcs }))
       );
       newUnsubs.push(
         listenAvailableServices((available) => {
           set((s) => {
-            const myIds = new Set(s.services.map((x) => x.id));
+            const myIds  = new Set(s.services.map((x) => x.id));
             const merged = [
               ...s.services,
               ...available.filter((a) => !myIds.has(a.id)),
             ];
             return { services: merged };
           });
-        }),
+        })
       );
     } else {
       newUnsubs.push(
         listenAvailableServices((svcs) => {
           set((s) => {
             // Keep confirmed/in_progress/completed, replace pending
-            const nonPending = s.services.filter((x) => x.status !== "pending");
+            const nonPending = s.services.filter(
+              (x) => x.status !== "pending"
+            );
             const nonPendingIds = new Set(nonPending.map((x) => x.id));
             return {
               services: [
@@ -133,7 +126,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               ],
             };
           });
-        }),
+        })
       );
       newUnsubs.push(
         listenGoalkeeperServices(currentUser.id, (confirmed) => {
@@ -146,7 +139,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               ],
             };
           });
-        }),
+        })
       );
     }
     set({ _unsubs: newUnsubs });
@@ -169,15 +162,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Notif: portero inicia servicio
     if (patch.status === "in_progress") {
-      const playerToken = await getUserPushToken(svc.playerId).catch(
-        () => null,
-      );
+      const playerToken = await getUserPushToken(svc.playerId).catch(() => null);
       if (playerToken && svc.confirmedGkName) {
-        notifyServiceStarted({
-          playerToken,
-          gkName: svc.confirmedGkName,
-          cancha: svc.cancha,
-        }).catch(console.error);
+        notifyServiceStarted({ playerToken, gkName: svc.confirmedGkName, cancha: svc.cancha })
+          .catch(console.error);
       }
     }
 
@@ -189,8 +177,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ]);
       if (pt && gt) {
         notifyServiceCompleted({
-          playerToken: pt,
-          gkToken: gt,
+          playerToken: pt, gkToken: gt,
           gkName: svc.confirmedGkName || "Portero",
           playerName: svc.playerName || "Jugador",
         }).catch(console.error);
@@ -199,16 +186,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Notif: jugador acepta oferta
     if (patch.status === "confirmed" && patch.confirmedGkId) {
-      const gkToken = await getUserPushToken(patch.confirmedGkId).catch(
-        () => null,
-      );
+      const gkToken = await getUserPushToken(patch.confirmedGkId).catch(() => null);
       if (gkToken) {
         notifyOfferAccepted({
           gkToken,
-          playerName: svc.playerName,
-          serviceId: id,
+          playerName:  svc.playerName,
+          serviceId:   id,
           tipoPartido: svc.tipoPartido,
-          ciudad: svc.ciudad,
+          ciudad:      svc.ciudad,
         }).catch(console.error);
       }
     }
@@ -225,18 +210,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (offer.status === "countered") {
       notifyCounterOffer({
         playerToken,
-        gkName: offer.gkName,
+        gkName:    offer.gkName,
         serviceId,
-        amount: offer.counterAmount || offer.amount,
-        horas: offer.counterHoras || svc.horas,
+        amount:    offer.counterAmount || offer.amount,
+        horas:     offer.counterHoras  || svc.horas,
       }).catch(console.error);
     } else {
       notifyNewOffer({
         playerToken,
-        gkName: offer.gkName,
+        gkName:      offer.gkName,
         serviceId,
         tipoPartido: svc.tipoPartido,
-        amount: offer.amount,
+        amount:      offer.amount,
       }).catch(console.error);
     }
   },
@@ -251,18 +236,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((s) => ({ chats: { ...s.chats, [serviceId]: msgs } }));
     });
     set((s) => ({
-      chats: { ...s.chats, [serviceId]: [] },
+      chats:   { ...s.chats, [serviceId]: [] },
       _unsubs: [...s._unsubs, unsub],
     }));
   },
 
   sendMsg: async (serviceId, msg) => {
     await sendMessage(serviceId, msg);
-    const svc = get().services.find((s) => s.id === serviceId);
+    const svc  = get().services.find((s) => s.id === serviceId);
     const user = get().currentUser;
     if (!svc || !user) return;
-    const recipientId =
-      user.role === "player" ? svc.confirmedGkId : svc.playerId;
+    const recipientId = user.role === "player" ? svc.confirmedGkId : svc.playerId;
     if (!recipientId) return;
     const token = await getUserPushToken(recipientId).catch(() => null);
     if (token) {
