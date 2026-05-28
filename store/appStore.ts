@@ -53,9 +53,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         get().startListening();
         // Registrar token push inmediatamente al autenticar
         import("../services/notificationService").then(({ registerPushToken }) => {
-          registerPushToken(user.id).then((token) => {
-            console.log("Push token result:", token ? "✅ got token" : "❌ null");
-          }).catch((e) => console.error("Push token error:", e));
+          registerPushToken(user.id)
+            .then((token) => {
+              const { Alert } = require("react-native");
+              Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token");
+            })
+            .catch((e) => {
+              const { Alert } = require("react-native");
+              Alert.alert("TOKEN ERROR", String(e));
+            });
+        }).catch((e) => {
+          const { Alert } = require("react-native");
+          Alert.alert("IMPORT ERROR", String(e));
         });
 
         // Escuchar cambios en tiempo real del perfil (saldo, estado, etc.)
