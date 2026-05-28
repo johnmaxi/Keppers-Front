@@ -77,8 +77,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "b3b494b8-8b8c-4596-805a-ccecb45fa2fb"
+        "projectId": "c3ab19be-f65a-429d-91d9-0c568217eb83"
       }
-    }
+    },
+    "owner": "johnlop13"
   }
 }
