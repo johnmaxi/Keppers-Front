@@ -1,6 +1,5 @@
 // app/_layout.tsx
 import { useEffect, useRef } from "react";
-import { registerPushToken } from "../services/notificationService";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useAppStore } from "../store/appStore";
 import { View, ActivityIndicator } from "react-native";
@@ -23,15 +22,6 @@ export default function RootLayout() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
-
-  // Registrar token cuando hay usuario autenticado
-  useEffect(() => {
-    if (currentUser?.id) {
-      registerPushToken(currentUser.id)
-        .then((token) => console.log("Token registered:", !!token))
-        .catch(console.error);
-    }
-  }, [currentUser?.id]);
 
   useEffect(() => {
     if (authLoading) return;

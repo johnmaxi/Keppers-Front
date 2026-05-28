@@ -51,6 +51,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ currentUser: user, authLoading: false });
       if (user) {
         get().startListening();
+        // Registrar token push inmediatamente al autenticar
+        import("../services/notificationService").then(({ registerPushToken }) => {
+          registerPushToken(user.id).then((token) => {
+            console.log("Push token result:", token ? "✅ got token" : "❌ null");
+          }).catch((e) => console.error("Push token error:", e));
+        });
+
         // Escuchar cambios en tiempo real del perfil (saldo, estado, etc.)
         const userUnsub = onSnapshot(doc(db, "users", user.id), (snap) => {
           if (snap.exists()) {
