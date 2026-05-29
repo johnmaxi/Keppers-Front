@@ -1,5 +1,6 @@
 // store/appStore.ts
 import { create } from "zustand";
+import { Alert } from "react-native";
 import { onSnapshot, doc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import {
@@ -15,7 +16,7 @@ import { sendMessage, listenMessages, Message } from "../services/chatService";
 import {
   getUserPushToken,
   notifyNewOffer, notifyOfferAccepted, notifyCounterOffer,
-  notifyServiceStarted, notifyServiceCompleted, notifyNewMessage,
+  notifyServiceCompletedPlayer, notifyServiceCompletedGK,
 } from "../services/notificationService";
 
 interface AppState {
@@ -48,26 +49,26 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initAuth: () => {
     const unsub = onAuthChanged(async (user) => {
+      // DEBUG - confirmar que onAuthChanged dispara
+      Alert.alert("AUTH CHANGED", user ? "User: " + user.id.substring(0, 8) : "Logged out");
       set({ currentUser: user, authLoading: false });
       if (user) {
         get().startListening();
-        // Registrar token push inmediatamente al autenticar
+
+        // Registrar token push
         import("../services/notificationService").then(({ registerPushToken }) => {
           registerPushToken(user.id)
             .then((token) => {
-              const { Alert } = require("react-native");
               Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token");
             })
             .catch((e) => {
-              const { Alert } = require("react-native");
               Alert.alert("TOKEN ERROR", String(e));
             });
         }).catch((e) => {
-          const { Alert } = require("react-native");
           Alert.alert("IMPORT ERROR", String(e));
         });
 
-        // Escuchar cambios en tiempo real del perfil (saldo, estado, etc.)
+        // Escuchar cambios en tiempo real del perfil (saldo, etc.)
         const userUnsub = onSnapshot(doc(db, "users", user.id), (snap) => {
           if (snap.exists()) {
             set((s) => ({
@@ -130,10 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       newUnsubs.push(
         listenAvailableServices((svcs) => {
           set((s) => {
-            // Keep confirmed/in_progress/completed, replace pending
-            const nonPending = s.services.filter(
-              (x) => x.status !== "pending"
-            );
+            const nonPending    = s.services.filter((x) => x.status !== "pending");
             const nonPendingIds = new Set(nonPending.map((x) => x.id));
             return {
               services: [
@@ -173,72 +171,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateService: async (id, patch) => {
     const svc = get().services.find((s) => s.id === id);
     await fbUpdateService(id, patch);
-
     if (!svc) return;
-
-    // Notif: portero inicia servicio
-    if (patch.status === "in_progress") {
-      const playerToken = await getUserPushToken(svc.playerId).catch(() => null);
-      if (playerToken && svc.confirmedGkName) {
-        notifyServiceStarted({ playerToken, gkName: svc.confirmedGkName, cancha: svc.cancha })
-          .catch(console.error);
-      }
-    }
 
     // Notif: servicio completado
     if (patch.status === "completed" && svc.confirmedGkId) {
-      const [pt, gt] = await Promise.all([
-        getUserPushToken(svc.playerId).catch(() => null),
-        getUserPushToken(svc.confirmedGkId).catch(() => null),
-      ]);
-      if (pt && gt) {
-        notifyServiceCompleted({
-          playerToken: pt, gkToken: gt,
-          gkName: svc.confirmedGkName || "Portero",
-          playerName: svc.playerName || "Jugador",
-        }).catch(console.error);
-      }
+      notifyServiceCompletedPlayer(svc.playerId).catch(() => {});
+      notifyServiceCompletedGK(svc.confirmedGkId, svc.total || 0).catch(() => {});
     }
 
-    // Notif: jugador acepta oferta
+    // Notif: jugador acepta oferta → notificar al portero
     if (patch.status === "confirmed" && patch.confirmedGkId) {
-      const gkToken = await getUserPushToken(patch.confirmedGkId).catch(() => null);
-      if (gkToken) {
-        notifyOfferAccepted({
-          gkToken,
-          playerName:  svc.playerName,
-          serviceId:   id,
-          tipoPartido: svc.tipoPartido,
-          ciudad:      svc.ciudad,
-        }).catch(console.error);
-      }
+      notifyOfferAccepted(
+        patch.confirmedGkId,
+        svc.playerName || "Jugador",
+        svc.tipoPartido || "servicio"
+      ).catch(() => {});
     }
   },
 
   addOffer: async (serviceId, offer) => {
     const svc = get().services.find((s) => s.id === serviceId);
     await fbAddOffer(serviceId, offer);
-
     if (!svc) return;
-    const playerToken = await getUserPushToken(svc.playerId).catch(() => null);
-    if (!playerToken) return;
 
     if (offer.status === "countered") {
-      notifyCounterOffer({
-        playerToken,
-        gkName:    offer.gkName,
-        serviceId,
-        amount:    offer.counterAmount || offer.amount,
-        horas:     offer.counterHoras  || svc.horas,
-      }).catch(console.error);
+      notifyCounterOffer(svc.playerId, offer.gkName, offer.counterAmount || offer.amount).catch(() => {});
     } else {
-      notifyNewOffer({
-        playerToken,
-        gkName:      offer.gkName,
-        serviceId,
-        tipoPartido: svc.tipoPartido,
-        amount:      offer.amount,
-      }).catch(console.error);
+      notifyNewOffer(svc.playerId, offer.gkName, offer.amount).catch(() => {});
     }
   },
 
@@ -259,19 +218,5 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   sendMsg: async (serviceId, msg) => {
     await sendMessage(serviceId, msg);
-    const svc  = get().services.find((s) => s.id === serviceId);
-    const user = get().currentUser;
-    if (!svc || !user) return;
-    const recipientId = user.role === "player" ? svc.confirmedGkId : svc.playerId;
-    if (!recipientId) return;
-    const token = await getUserPushToken(recipientId).catch(() => null);
-    if (token) {
-      notifyNewMessage({
-        recipientToken: token,
-        senderName: msg.senderName,
-        text: msg.text,
-        serviceId,
-      }).catch(console.error);
-    }
   },
 }));
