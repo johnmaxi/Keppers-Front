@@ -16,6 +16,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     mounted.current = true;
+    // DEBUG: confirmar que este codigo corre
+    const { Alert } = require("react-native");
+    Alert.alert("APP VERSION", "v2.0 - codigo nuevo cargado OK");
     initAuth();
     return () => {
       mounted.current = false;
