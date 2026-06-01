@@ -88,15 +88,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    // Solo hacer login en Firebase - onAuthChanged se encarga del resto
-    await loginUser(email, password);
-    // NO hacer set aqui - onAuthChanged dispara automaticamente
+    const user = await loginUser(email, password);
+    set({ currentUser: user });
+    get().startListening();
+    // Registrar push token al hacer login
+    import("../services/notificationService").then(({ registerPushToken }) => {
+      registerPushToken(user.id)
+        .then((token) => Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token"))
+        .catch((e) => Alert.alert("TOKEN ERROR", String(e)));
+    }).catch((e) => Alert.alert("IMPORT ERROR", String(e)));
   },
 
   register: async (form) => {
-    // Solo registrar en Firebase - onAuthChanged se encarga del resto
-    await registerUser(form);
-    // NO hacer set aqui - onAuthChanged dispara automaticamente
+    const user = await registerUser(form);
+    set({ currentUser: user });
+    get().startListening();
   },
 
   logout: async () => {
