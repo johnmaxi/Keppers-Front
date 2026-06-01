@@ -88,15 +88,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    const user = await loginUser(email, password);
-    set({ currentUser: user });
-    get().startListening();
+    // Solo hacer login en Firebase - onAuthChanged se encarga del resto
+    await loginUser(email, password);
+    // NO hacer set aqui - onAuthChanged dispara automaticamente
   },
 
   register: async (form) => {
-    const user = await registerUser(form);
-    set({ currentUser: user });
-    get().startListening();
+    // Solo registrar en Firebase - onAuthChanged se encarga del resto
+    await registerUser(form);
+    // NO hacer set aqui - onAuthChanged dispara automaticamente
   },
 
   logout: async () => {
