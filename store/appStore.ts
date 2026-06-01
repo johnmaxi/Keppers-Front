@@ -55,17 +55,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (user) {
         get().startListening();
 
-        // Registrar token push
-        import("../services/notificationService").then(({ registerPushToken }) => {
-          registerPushToken(user.id)
-            .then((token) => {
-              Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token");
-            })
-            .catch((e) => {
-              Alert.alert("TOKEN ERROR", String(e));
-            });
-        }).catch((e) => {
-          Alert.alert("IMPORT ERROR", String(e));
+        // Registrar token push (tambien en onAuthChanged)
+        import("../services/notificationService").then(async ({ registerPushToken }) => {
+          try {
+            const token = await registerPushToken(user.id);
+            Alert.alert("TOKEN AUTH", token ? "OK: " + token.substring(0, 30) : "NULL");
+          } catch (e: any) {
+            Alert.alert("TOKEN AUTH ERROR", String(e));
+          }
         });
 
         // Escuchar cambios en tiempo real del perfil (saldo, etc.)
@@ -92,11 +89,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ currentUser: user });
     get().startListening();
     // Registrar push token al hacer login
-    import("../services/notificationService").then(({ registerPushToken }) => {
-      registerPushToken(user.id)
-        .then((token) => Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token"))
-        .catch((e) => Alert.alert("TOKEN ERROR", String(e)));
-    }).catch((e) => Alert.alert("IMPORT ERROR", String(e)));
+    try {
+      const { registerPushToken } = await import("../services/notificationService");
+      const token = await registerPushToken(user.id);
+      Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token");
+    } catch (e: any) {
+      Alert.alert("TOKEN ERROR", String(e));
+    }
   },
 
   register: async (form) => {
