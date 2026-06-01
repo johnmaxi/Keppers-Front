@@ -1,6 +1,5 @@
 // store/appStore.ts
 import { create } from "zustand";
-import { Alert } from "react-native";
 import { onSnapshot, doc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import {
@@ -50,8 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   initAuth: () => {
     const unsub = onAuthChanged(async (user) => {
       // DEBUG - confirmar que onAuthChanged dispara
-      Alert.alert("AUTH CHANGED", user ? "User: " + user.id.substring(0, 8) : "Logged out");
-      set({ currentUser: user, authLoading: false });
+            set({ currentUser: user, authLoading: false });
       if (user) {
         get().startListening();
 
@@ -59,10 +57,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         import("../services/notificationService").then(async ({ registerPushToken }) => {
           try {
             const token = await registerPushToken(user.id);
-            Alert.alert("TOKEN AUTH", token ? "OK: " + token.substring(0, 30) : "NULL");
-          } catch (e: any) {
-            Alert.alert("TOKEN AUTH ERROR", String(e));
-          }
+                      } catch (e: any) {
+                      }
         });
 
         // Escuchar cambios en tiempo real del perfil (saldo, etc.)
@@ -92,9 +88,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const { registerPushToken } = await import("../services/notificationService");
       const token = await registerPushToken(user.id);
-      Alert.alert("TOKEN RESULT", token ? "OK: " + token.substring(0, 30) : "NULL - no token");
+      console.log("TOKEN RESULT:", token || "NULL");
+      // Guardar resultado en Firestore para debug
+      const { updateDoc, doc: firestoreDoc } = await import("firebase/firestore");
+      await updateDoc(firestoreDoc(db, "users", user.id), {
+        pushTokenDebug: token || "NULL_" + Date.now(),
+        pushTokenUpdatedAt: Date.now(),
+      });
     } catch (e: any) {
-      Alert.alert("TOKEN ERROR", String(e));
+      console.error("TOKEN ERROR:", e);
+      const { updateDoc, doc: firestoreDoc } = await import("firebase/firestore");
+      await updateDoc(firestoreDoc(db, "users", user.id), {
+        pushTokenDebug: "ERROR: " + String(e).substring(0, 100),
+      }).catch(() => {});
     }
   },
 
