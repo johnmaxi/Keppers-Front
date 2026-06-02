@@ -13,30 +13,39 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     return null;
   }
   try {
-    const { Alert }     = await import("react-native");
     const Notifications = await import("expo-notifications");
     const Device        = await import("expo-device");
     const { Platform }  = await import("react-native");
 
     console.log("PUSH DEBUG", userId?.substring(0,8));
 
+    // Write debug step to Firestore
+    const writeDebug = async (msg: string) => {
+      try {
+        await updateDoc(doc(db, "users", userId), { pushTokenDebug: msg, pushTokenUpdatedAt: Date.now() });
+      } catch {}
+    };
+
+    await writeDebug("STEP1: checking isDevice=" + Device.default.isDevice);
+
     if (!Device.default.isDevice) {
-      console.log("PUSH ERROR: not a device");
+      await writeDebug("FAIL: not a device");
       return null;
     }
 
     const { status: existing } = await Notifications.getPermissionsAsync();
-    console.log("Current permission status:", existing);
+    await writeDebug("STEP2: permission=" + existing);
     let finalStatus = existing;
     if (existing !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
-      console.log("New permission status:", status);
+      await writeDebug("STEP3: new permission=" + status);
     }
     if (finalStatus !== "granted") {
-      console.log("Push permission denied");
+      await writeDebug("FAIL: permission denied=" + finalStatus);
       return null;
     }
+    await writeDebug("STEP4: permissions OK, getting token...");
 
     if (Platform.OS === "android") {
       const channels = [
@@ -65,12 +74,12 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     console.log("Using projectId:", projectId);
 
+    await writeDebug("STEP5: projectId=" + projectId);
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
     console.log("TOKEN OK:", token?.substring(0, 40));
-
-    await updateDoc(doc(db, "users", userId), { pushToken: token });
-    console.log("TOKEN GUARDADO en Firestore");
+    await writeDebug("SUCCESS: " + (token || "null"));
+    await updateDoc(doc(db, "users", userId), { pushToken: token, pushTokenDebug: "OK: " + token });
     return token;
   } catch (e: any) {
     console.error("PUSH FAILED:", e?.message || e);
