@@ -18,10 +18,10 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     const Device        = await import("expo-device");
     const { Platform }  = await import("react-native");
 
-    Alert.alert("PUSH DEBUG", `userId: ${userId?.substring(0,8)}\nisDevice: ${Device.default.isDevice}\nOS: ${Platform.OS}`);
+    console.log("PUSH DEBUG", userId?.substring(0,8));
 
     if (!Device.default.isDevice) {
-      Alert.alert("PUSH ERROR", "No es dispositivo fisico");
+      console.log("PUSH ERROR: not a device");
       return null;
     }
 
@@ -67,13 +67,13 @@ export async function registerPushToken(userId: string): Promise<string | null> 
 
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
-    Alert.alert("TOKEN OK", token?.substring(0, 40) + "...");
+    console.log("TOKEN OK:", token?.substring(0, 40));
 
     await updateDoc(doc(db, "users", userId), { pushToken: token });
-    Alert.alert("TOKEN GUARDADO", "pushToken en Firestore OK");
+    console.log("TOKEN GUARDADO en Firestore");
     return token;
   } catch (e: any) {
-    Alert.alert("PUSH FAILED", `${e?.message || e}`);
+    console.error("PUSH FAILED:", e?.message || e);
     console.error("Push token registration FAILED:", e);
     return null;
   }
