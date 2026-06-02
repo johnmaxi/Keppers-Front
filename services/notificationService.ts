@@ -5,11 +5,20 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 const isExpoGo = Constants.appOwnership === "expo";
+// Log for debug
+console.log("appOwnership:", Constants.appOwnership, "isExpoGo:", isExpoGo);
 
 // ── Registrar token push ──────────────────────────────────────────────────────
 export async function registerPushToken(userId: string): Promise<string | null> {
   if (isExpoGo) {
-    console.log("Expo Go: push notifications not supported");
+    console.log("Expo Go: push notifications not supported, appOwnership:", Constants.appOwnership);
+    // Write to Firestore so we can see it
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        pushTokenDebug: "EXPO_GO_DETECTED: ownership=" + Constants.appOwnership,
+        pushTokenUpdatedAt: Date.now(),
+      });
+    } catch {}
     return null;
   }
   try {
@@ -83,7 +92,13 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     return token;
   } catch (e: any) {
     console.error("PUSH FAILED:", e?.message || e);
-    console.error("Push token registration FAILED:", e);
+    // Write error to Firestore for debug
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        pushTokenDebug: "CATCH_ERROR: " + String(e?.message || e).substring(0, 100),
+        pushTokenUpdatedAt: Date.now(),
+      });
+    } catch {}
     return null;
   }
 }
