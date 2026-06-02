@@ -12,13 +12,13 @@ console.log("appOwnership:", Constants.appOwnership, "isExpoGo:", isExpoGo);
 export async function registerPushToken(userId: string): Promise<string | null> {
   if (isExpoGo) {
     console.log("Expo Go: push notifications not supported, appOwnership:", Constants.appOwnership);
-    // Write to Firestore so we can see it
     try {
-      await updateDoc(doc(db, "users", userId), {
-        pushTokenDebug: "EXPO_GO_DETECTED: ownership=" + Constants.appOwnership,
+      const { setDoc: sd2 } = await import("firebase/firestore");
+      await sd2(doc(db, "users", userId), {
+        pushTokenDebug: "EXPO_GO_DETECTED: ownership=" + (Constants.appOwnership || "undefined"),
         pushTokenUpdatedAt: Date.now(),
-      });
-    } catch {}
+      }, { merge: true });
+    } catch (e2) { console.error("isExpoGo write failed:", e2); }
     return null;
   }
   try {
@@ -31,8 +31,11 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     // Write debug step to Firestore
     const writeDebug = async (msg: string) => {
       try {
-        await updateDoc(doc(db, "users", userId), { pushTokenDebug: msg, pushTokenUpdatedAt: Date.now() });
-      } catch {}
+        const { setDoc: sd } = await import("firebase/firestore");
+        await sd(doc(db, "users", userId), { pushTokenDebug: msg, pushTokenUpdatedAt: Date.now() }, { merge: true });
+      } catch (dbErr) {
+        console.error("writeDebug failed:", dbErr);
+      }
     };
 
     await writeDebug("STEP1: checking isDevice=" + Device.default.isDevice);
@@ -94,10 +97,11 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     console.error("PUSH FAILED:", e?.message || e);
     // Write error to Firestore for debug
     try {
-      await updateDoc(doc(db, "users", userId), {
+      const { setDoc: sd3 } = await import("firebase/firestore");
+      await sd3(doc(db, "users", userId), {
         pushTokenDebug: "CATCH_ERROR: " + String(e?.message || e).substring(0, 100),
         pushTokenUpdatedAt: Date.now(),
-      });
+      }, { merge: true });
     } catch {}
     return null;
   }
