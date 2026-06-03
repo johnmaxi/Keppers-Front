@@ -10,17 +10,8 @@ console.log("appOwnership:", Constants.appOwnership, "isExpoGo:", isExpoGo);
 
 // ── Registrar token push ──────────────────────────────────────────────────────
 export async function registerPushToken(userId: string): Promise<string | null> {
-  if (isExpoGo) {
-    console.log("Expo Go: push notifications not supported, appOwnership:", Constants.appOwnership);
-    try {
-      const { setDoc: sd2 } = await import("firebase/firestore");
-      await sd2(doc(db, "users", userId), {
-        pushTokenDebug: "EXPO_GO_DETECTED: ownership=" + (Constants.appOwnership || "undefined"),
-        pushTokenUpdatedAt: Date.now(),
-      }, { merge: true });
-    } catch (e2) { console.error("isExpoGo write failed:", e2); }
-    return null;
-  }
+  // Note: removed isExpoGo check - let APK always try to get token
+  console.log("appOwnership:", Constants.appOwnership, "trying to get token anyway...");
   try {
     const Notifications = await import("expo-notifications");
     const Device        = await import("expo-device");
@@ -156,7 +147,7 @@ async function sendPush(
 
 // ── Notificación local (funciona en Expo Go para testing) ─────────────────────
 export async function showLocalNotification(title: string, body: string): Promise<void> {
-  if (isExpoGo) return; // No-op en Expo Go SDK 53+
+  // showLocalNotification - runs in APK only
   try {
     const Notifications = await import("expo-notifications");
     await Notifications.scheduleNotificationAsync({
