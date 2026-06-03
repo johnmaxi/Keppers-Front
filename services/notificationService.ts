@@ -22,12 +22,14 @@ export async function registerPushToken(userId: string): Promise<string | null> 
     // Write debug step to Firestore
     const writeDebug = async (msg: string) => {
       try {
-        const { setDoc: sd } = await import("firebase/firestore");
-        await sd(doc(db, "users", userId), { pushTokenDebug: msg, pushTokenUpdatedAt: Date.now() }, { merge: true });
+        const { setDoc: sd, doc: d } = await import("firebase/firestore");
+        const { db: database } = await import("../lib/firebase");
+        await sd(d(database, "users", userId), { pushTokenDebug: msg, pushTokenUpdatedAt: Date.now() }, { merge: true });
       } catch (dbErr) {
-        console.error("writeDebug failed:", dbErr);
+        console.error("writeDebug failed:", String(dbErr));
       }
     };
+    await writeDebug("START: appOwnership=" + (Constants.appOwnership || "undefined"));
 
     await writeDebug("STEP1: checking isDevice=" + Device.default.isDevice);
 
