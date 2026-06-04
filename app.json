@@ -8,6 +8,7 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0a0a0f"
@@ -35,8 +36,8 @@
         "googleMapsApiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Keeperz necesita tu ubicación para el seguimiento del portero.",
-        "NSLocationAlwaysUsageDescription": "Keeperz necesita tu ubicación para el seguimiento del portero."
+        "NSLocationWhenInUseUsageDescription": "Keepers necesita tu ubicación para el seguimiento del portero.",
+        "NSLocationAlwaysUsageDescription": "Keepers necesita tu ubicación para el seguimiento del portero."
       }
     },
     "web": {
@@ -71,7 +72,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Keeperz necesita tu ubicación para el seguimiento en tiempo real del portero."
+          "locationAlwaysAndWhenInUsePermission": "Keepers necesita tu ubicación para el seguimiento en tiempo real del portero."
         }
       ]
     ],
