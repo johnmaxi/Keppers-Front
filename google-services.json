@@ -1,22 +1,21 @@
 {
   "project_info": {
-    "project_number": "62565949694",
-    "firebase_url": "https://styleapp-8b484-default-rtdb.firebaseio.com",
-    "project_id": "styleapp-8b484",
-    "storage_bucket": "styleapp-8b484.firebasestorage.app"
+    "project_number": "449005221403",
+    "project_id": "keepersapp-6b982",
+    "storage_bucket": "keepersapp-6b982.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:62565949694:android:a82299b0b1db9092ea05af",
+        "mobilesdk_app_id": "1:449005221403:android:8eed409e308b2e9ee5eabe",
         "android_client_info": {
-          "package_name": "com.johnarelop.styleapp"
+          "package_name": "com.keepers.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCM2jBRRg4pgueLIVGdybeR6c6MQ8bB9HY"
+          "current_key": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
         }
       ],
       "services": {
