@@ -91,8 +91,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const write = (data: object) => ud(d(database, "users", user.id), data).catch(() => {});
       try {
         const Notifications = await import("expo-notifications");
-        const Device        = await import("expo-device");
-        await write({ pushTokenDebug: "DIRECT_START: isDevice=" + Device.default.isDevice, pushTokenUpdatedAt: Date.now() });
+        const { isDevice } = await import("expo-device");
+        await write({ pushTokenDebug: "DIRECT_START: isDevice=" + isDevice, pushTokenUpdatedAt: Date.now() });
         const { status } = await Notifications.requestPermissionsAsync();
         await write({ pushTokenDebug: "DIRECT_PERM: " + status });
         if (status === "granted") {
