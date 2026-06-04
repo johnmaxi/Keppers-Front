@@ -84,24 +84,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     const user = await loginUser(email, password);
     set({ currentUser: user });
     get().startListening();
-    // Registrar push token al hacer login
-    try {
-      const { registerPushToken } = await import("../services/notificationService");
-      const token = await registerPushToken(user.id);
-      console.log("TOKEN RESULT:", token || "NULL");
-      // Guardar resultado en Firestore para debug
-      const { updateDoc, doc: firestoreDoc } = await import("firebase/firestore");
-      await updateDoc(firestoreDoc(db, "users", user.id), {
-        pushTokenDebug: token || "NULL_" + Date.now(),
-        pushTokenUpdatedAt: Date.now(),
-      });
-    } catch (e: any) {
-      console.error("TOKEN ERROR:", e);
-      const { updateDoc, doc: firestoreDoc } = await import("firebase/firestore");
-      await updateDoc(firestoreDoc(db, "users", user.id), {
-        pushTokenDebug: "ERROR: " + String(e).substring(0, 100),
-      }).catch(() => {});
-    }
+    // Obtener push token directamente sin notificationService
+    (async () => {
+      const { updateDoc: ud, doc: d } = await import("firebase/firestore");
+      const { db: database } = await import("../lib/firebase");
+      const write = (data: object) => ud(d(database, "users", user.id), data).catch(() => {});
+      try {
+        const Notifications = await import("expo-notifications");
+        const Device        = await import("expo-device");
+        await write({ pushTokenDebug: "DIRECT_START: isDevice=" + Device.default.isDevice, pushTokenUpdatedAt: Date.now() });
+        const { status } = await Notifications.requestPermissionsAsync();
+        await write({ pushTokenDebug: "DIRECT_PERM: " + status });
+        if (status === "granted") {
+          const projectId = "5d087182-d701-44f7-8a81-9dddc489d71b";
+          const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+          const token = tokenData.data;
+          await write({ pushToken: token, pushTokenDebug: "DIRECT_OK: " + token, pushTokenUpdatedAt: Date.now() });
+        } else {
+          await write({ pushTokenDebug: "DIRECT_DENIED: " + status });
+        }
+      } catch (e: any) {
+        await write({ pushTokenDebug: "DIRECT_ERROR: " + String(e?.message || e).substring(0, 150) });
+      }
+    })();
   },
 
   register: async (form) => {
