@@ -1,6 +1,6 @@
 // store/appStore.ts
 import { create } from "zustand";
-import { onSnapshot, doc } from "firebase/firestore";
+import { onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import {
   AppUser, loginUser, registerUser, logoutUser, onAuthChanged,
@@ -13,7 +13,6 @@ import {
 } from "../services/serviceService";
 import { sendMessage, listenMessages, Message } from "../services/chatService";
 import {
-  getUserPushToken,
   notifyNewOffer, notifyOfferAccepted, notifyCounterOffer,
   notifyServiceCompletedPlayer, notifyServiceCompletedGK,
 } from "../services/notificationService";
@@ -39,6 +38,49 @@ interface AppState {
   sendMsg:        (serviceId: string, msg: Omit<Message, "id" | "createdAt">) => Promise<void>;
 }
 
+// ── Registrar push token y canales Android ───────────────────────────────────
+async function setupPushNotifications(userId: string, projectId: string) {
+  try {
+    const Notifications = await import("expo-notifications");
+    const { isDevice }  = await import("expo-device");
+    const { Platform }  = await import("react-native");
+    if (!isDevice) return;
+
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== "granted") return;
+
+    if (Platform.OS === "android") {
+      const channels = [
+        { id: "keepers-default",      name: "Keepers General",    sound: "default",         importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-solicitud",    name: "Nuevas Solicitudes", sound: "nueva_solicitud", importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-oferta",       name: "Ofertas",            sound: "oferta_recibida", importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-contraoferta", name: "Contraofertas",      sound: "contraoferta",    importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-aceptado",     name: "Aceptados",          sound: "aceptado",        importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-completado",   name: "Completados",        sound: "completado",      importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-aprobado",     name: "Aprobaciones",       sound: "aprobado",        importance: Notifications.AndroidImportance.MAX },
+        { id: "keepers-rechazado",    name: "Rechazos",           sound: "rechazado",       importance: Notifications.AndroidImportance.HIGH },
+        { id: "keepers-recarga",      name: "Recargas",           sound: "recarga",         importance: Notifications.AndroidImportance.MAX },
+      ];
+      for (const ch of channels) {
+        await Notifications.setNotificationChannelAsync(ch.id, {
+          name: ch.name, importance: ch.importance,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: "#00ff87", sound: ch.sound, enableVibrate: true,
+        });
+      }
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    const token = tokenData.data;
+    await updateDoc(doc(db, "users", userId), {
+      pushToken: token,
+      pushTokenUpdatedAt: Date.now(),
+    });
+  } catch (e: any) {
+    console.error("Push setup error:", e?.message || e);
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   currentUser: null,
   authLoading: true,
@@ -48,19 +90,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initAuth: () => {
     const unsub = onAuthChanged(async (user) => {
-      // DEBUG - confirmar que onAuthChanged dispara
-            set({ currentUser: user, authLoading: false });
+      set({ currentUser: user, authLoading: false });
       if (user) {
         get().startListening();
-
-        // Registrar token push (tambien en onAuthChanged)
-        import("../services/notificationService").then(async ({ registerPushToken }) => {
-          try {
-            const token = await registerPushToken(user.id);
-                      } catch (e: any) {
-                      }
-        });
-
+        // Registrar push token y canales
+        setupPushNotifications(user.id, "309577c9-2a5b-443a-8e26-fe021dd499c3");
         // Escuchar cambios en tiempo real del perfil (saldo, etc.)
         const userUnsub = onSnapshot(doc(db, "users", user.id), (snap) => {
           if (snap.exists()) {
@@ -84,29 +118,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const user = await loginUser(email, password);
     set({ currentUser: user });
     get().startListening();
-    // Obtener push token directamente sin notificationService
-    (async () => {
-      const { updateDoc: ud, doc: d } = await import("firebase/firestore");
-      const { db: database } = await import("../lib/firebase");
-      const write = (data: object) => ud(d(database, "users", user.id), data).catch(() => {});
-      try {
-        const Notifications = await import("expo-notifications");
-        const { isDevice } = await import("expo-device");
-        await write({ pushTokenDebug: "DIRECT_START: isDevice=" + isDevice, pushTokenUpdatedAt: Date.now() });
-        const { status } = await Notifications.requestPermissionsAsync();
-        await write({ pushTokenDebug: "DIRECT_PERM: " + status });
-        if (status === "granted") {
-          const projectId = "5d087182-d701-44f7-8a81-9dddc489d71b";
-          const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-          const token = tokenData.data;
-          await write({ pushToken: token, pushTokenDebug: "DIRECT_OK: " + token, pushTokenUpdatedAt: Date.now() });
-        } else {
-          await write({ pushTokenDebug: "DIRECT_DENIED: " + status });
-        }
-      } catch (e: any) {
-        await write({ pushTokenDebug: "DIRECT_ERROR: " + String(e?.message || e).substring(0, 150) });
-      }
-    })();
+    setupPushNotifications(user.id, "309577c9-2a5b-443a-8e26-fe021dd499c3");
   },
 
   register: async (form) => {
@@ -135,10 +147,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         listenAvailableServices((available) => {
           set((s) => {
             const myIds  = new Set(s.services.map((x) => x.id));
-            const merged = [
-              ...s.services,
-              ...available.filter((a) => !myIds.has(a.id)),
-            ];
+            const merged = [...s.services, ...available.filter((a) => !myIds.has(a.id))];
             return { services: merged };
           });
         })
@@ -149,12 +158,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           set((s) => {
             const nonPending    = s.services.filter((x) => x.status !== "pending");
             const nonPendingIds = new Set(nonPending.map((x) => x.id));
-            return {
-              services: [
-                ...nonPending,
-                ...svcs.filter((x) => !nonPendingIds.has(x.id)),
-              ],
-            };
+            return { services: [...nonPending, ...svcs.filter((x) => !nonPendingIds.has(x.id))] };
           });
         })
       );
@@ -162,12 +166,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         listenGoalkeeperServices(currentUser.id, (confirmed) => {
           set((s) => {
             const confirmedIds = new Set(confirmed.map((x) => x.id));
-            return {
-              services: [
-                ...s.services.filter((x) => !confirmedIds.has(x.id)),
-                ...confirmed,
-              ],
-            };
+            return { services: [...s.services.filter((x) => !confirmedIds.has(x.id)), ...confirmed] };
           });
         })
       );
@@ -188,20 +187,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const svc = get().services.find((s) => s.id === id);
     await fbUpdateService(id, patch);
     if (!svc) return;
-
-    // Notif: servicio completado
     if (patch.status === "completed" && svc.confirmedGkId) {
       notifyServiceCompletedPlayer(svc.playerId).catch(() => {});
       notifyServiceCompletedGK(svc.confirmedGkId, svc.total || 0).catch(() => {});
     }
-
-    // Notif: jugador acepta oferta → notificar al portero
     if (patch.status === "confirmed" && patch.confirmedGkId) {
-      notifyOfferAccepted(
-        patch.confirmedGkId,
-        svc.playerName || "Jugador",
-        svc.tipoPartido || "servicio"
-      ).catch(() => {});
+      notifyOfferAccepted(patch.confirmedGkId, svc.playerName || "Jugador", svc.tipoPartido || "servicio").catch(() => {});
     }
   },
 
@@ -209,7 +200,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const svc = get().services.find((s) => s.id === serviceId);
     await fbAddOffer(serviceId, offer);
     if (!svc) return;
-
     if (offer.status === "countered") {
       notifyCounterOffer(svc.playerId, offer.gkName, offer.counterAmount || offer.amount).catch(() => {});
     } else {
