@@ -96,6 +96,41 @@ export default function GoalkeeperDashboard() {
       { text: "Cancelar", style: "cancel" },
       { text: "Iniciar", onPress: () => {
           updateService(svcId, { status: "in_progress", startedAt: new Date().toISOString() } as any);
+          // Notificar al jugador que el portero está en camino
+          const svcEnCamino = services.find((s) => s.id === svcId);
+          if (svcEnCamino?.playerId) {
+            import("../../services/notificationService").then(({ notifyServiceCompletedPlayer: _ , notifyCounterOffer: __ , notifyNewOffer: ___ , notifyOfferAccepted: ____ , notifyServiceCompletedGK: _____ }) => {});
+            fetch("https://exp.host/--/api/v2/push/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: "",
+                title: "🧤 Portero en camino",
+                body: `${currentUser?.nombre} está en camino a la cancha`,
+                channelId: "keepers-aceptado",
+              }),
+            }).catch(() => {});
+            // Notificar via servicio
+            import("../../services/notificationService").then(async ({ notifyOfferAccepted }) => {
+              // Use getUserPushToken to notify player
+              const { getUserPushToken } = await import("../../services/notificationService");
+              const token = await getUserPushToken(svcEnCamino.playerId);
+              if (token) {
+                fetch("https://exp.host/--/api/v2/push/send", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    to: token,
+                    title: "🧤 Portero en camino",
+                    body: `${currentUser?.nombre} está dirigiéndose a la cancha`,
+                    sound: "aceptado",
+                    channelId: "keepers-aceptado",
+                    priority: "high",
+                  }),
+                }).catch(() => {});
+              }
+            });
+          }
           Alert.alert("🟢", "¡Servicio iniciado! Buen partido.");
         },
       },

@@ -15,6 +15,7 @@ import { useAppStore } from "../../store/appStore";
 import {
   listenRecargas, aprobarRecarga, rechazarRecarga,
 } from "../../services/walletService";
+import { notifyRegistrationStatus, notifyRecargaStatus } from "../../services/notificationService";
 
 interface PendingUser {
   id: string; nombre: string; email: string; ciudad: string;

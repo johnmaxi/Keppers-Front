@@ -1,5 +1,15 @@
 // app/_layout.tsx
 import { useEffect, useRef } from "react";
+import * as Notifications from "expo-notifications";
+
+// Mostrar notificaciones aunque la app esté abierta
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge:  true,
+  }),
+});
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useAppStore } from "../store/appStore";
 import { View, ActivityIndicator } from "react-native";

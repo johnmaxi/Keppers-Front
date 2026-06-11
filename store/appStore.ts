@@ -181,6 +181,26 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addService: async (data) => {
     await createService(data);
+    // Notificar a porteros disponibles en la misma ciudad
+    import("../services/notificationService").then(async ({ notifyNewService }) => {
+      try {
+        const { collection, query, where, getDocs } = await import("firebase/firestore");
+        const q = query(
+          collection(db, "users"),
+          where("role", "==", "goalkeeper"),
+          where("disponible", "==", true),
+          where("registrationStatus", "==", "approved"),
+          where("ciudad", "==", (data as any).ciudad),
+        );
+        const snap = await getDocs(q);
+        snap.docs.forEach((d) => {
+          const gk = d.data();
+          if (gk.pushToken) {
+            notifyNewService(d.id, (data as any).ciudad, (data as any).tipoPartido).catch(() => {});
+          }
+        });
+      } catch (e) { console.error("notifyNewService error:", e); }
+    });
   },
 
   updateService: async (id, patch) => {
