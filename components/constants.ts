@@ -2,26 +2,81 @@
 export const BASE = 30000;
 
 export const CIUDADES = [
-  "Bogotá","Medellín","Cali","Barranquilla","Cartagena","Cúcuta",
-  "Bucaramanga","Pereira","Santa Marta","Ibagué","Manizales","Villavicencio",
+  "Medellín",
 ];
 
 // Solo Efectivo y Nequi — MercadoPago en Sprint 4
 export const MEDIOS_PAGO = ["Efectivo", "Nequi / Bancolombia / Llaves"];
 
 export const CANCHAS: Record<string, string[]> = {
-  "Bogotá":       ["Cancha El Campín","Cancha Santa Fe","Cancha El Salitre","Otra"],
-  "Medellín":     ["Cancha Atanasio","Cancha El Poblado","Cancha Laureles","Otra"],
-  "Cali":         ["Cancha Pascual Guerrero","Cancha El Campestre","Otra"],
-  "Barranquilla": ["Cancha Metropolitano","Cancha El Prado","Otra"],
-  "Cartagena":    ["Cancha Jaime Morón","Cancha Bocagrande","Otra"],
-  "Cúcuta":       ["Cancha General Santander","Cancha Centro","Otra"],
-  "Bucaramanga":  ["Cancha Alfonso López","Cancha Floridablanca","Otra"],
-  "Pereira":      ["Cancha Hernán Ramírez","Cancha Centro","Otra"],
-  "Santa Marta":  ["Cancha Sierra Nevada","Cancha El Rodadero","Otra"],
-  "Ibagué":       ["Cancha Manuel Murillo","Cancha Centro","Otra"],
-  "Manizales":    ["Cancha Palogrande","Cancha Centro","Otra"],
-  "Villavicencio":["Cancha Bello Horizonte","Cancha Centro","Otra"],
+  "Medellín": [
+    // Escenarios deportivos oficiales
+    "Estadio Atanasio Girardot",
+    "Unidad Deportiva Atanasio Girardot",
+    // El Poblado
+    "Cancha El Poblado",
+    "Cancha La Florida",
+    "Cancha Provenza",
+    // Laureles - Estadio
+    "Cancha Laureles",
+    "Cancha Los Ídolos",
+    "Cancha Barrio Laureles",
+    // Envigado
+    "Cancha Envigado Centro",
+    "Cancha El Salado - Envigado",
+    "Polideportivo Sur - Envigado",
+    // Itagüí
+    "Cancha Itagüí Centro",
+    "Polideportivo Itagüí",
+    // Bello
+    "Cancha Bello Centro",
+    "Polideportivo Bello",
+    // Sabaneta
+    "Cancha Sabaneta",
+    // Copacabana
+    "Cancha Copacabana",
+    // Robledo
+    "Cancha Robledo",
+    "Polideportivo Robledo",
+    // Belén
+    "Cancha Belén",
+    "Cancha La Palma - Belén",
+    "Polideportivo Belén",
+    // Aranjuez
+    "Cancha Aranjuez",
+    "Polideportivo Aranjuez",
+    // Manrique
+    "Cancha Manrique",
+    "Polideportivo Manrique",
+    // Buenos Aires
+    "Cancha Buenos Aires",
+    // La Candelaria (Centro)
+    "Cancha La Candelaria",
+    "Cancha Centro Medellín",
+    // Castilla
+    "Cancha Castilla",
+    "Polideportivo Castilla",
+    // Guayabal
+    "Cancha Guayabal",
+    // San Javier
+    "Cancha San Javier",
+    "Polideportivo San Javier",
+    // Popular
+    "Cancha Popular",
+    // Santa Cruz
+    "Cancha Santa Cruz",
+    // Canchas sintéticas conocidas
+    "Fútbol 5 El Tesoro",
+    "Fútbol 5 Oviedo",
+    "Fútbol 5 San Diego",
+    "Fútbol 5 La 33",
+    "Fútbol 5 Manila",
+    "Fútbol 5 Conquistadores",
+    "Fútbol 5 Ciudad del Río",
+    "Cancha Sintética Los Colores",
+    "Cancha Sintética La América",
+    "Otra",
+  ],
 };
 
 export const GKS = [
