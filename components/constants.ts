@@ -5,6 +5,107 @@ export const CIUDADES = [
   "Medellín",
 ];
 
+export const BARRIOS: Record<string, string[]> = {
+  "Medellín": [
+    "El Poblado",
+    "Laureles — Estadio",
+    "Belén",
+    "Robledo",
+    "Envigado",
+    "Itagüí",
+    "Bello",
+    "Aranjuez — Manrique",
+    "Buenos Aires — La Candelaria",
+    "San Javier — Santa Cruz",
+    "Sabaneta — Copacabana",
+  ],
+};
+
+export const CANCHAS_POR_BARRIO: Record<string, string[]> = {
+  "El Poblado": [
+    "Cancha El Poblado",
+    "Cancha La Florida",
+    "Cancha Provenza",
+    "Fútbol 5 El Tesoro",
+    "Fútbol 5 Oviedo",
+    "Fútbol 5 Ciudad del Río",
+    "Otra",
+  ],
+  "Laureles — Estadio": [
+    "Estadio Atanasio Girardot",
+    "Unidad Deportiva Atanasio Girardot",
+    "Cancha Laureles",
+    "Cancha Los Ídolos",
+    "Cancha Barrio Laureles",
+    "Fútbol 5 Conquistadores",
+    "Otra",
+  ],
+  "Belén": [
+    "Cancha Belén",
+    "Cancha La Palma — Belén",
+    "Polideportivo Belén",
+    "Cancha La Mota — Belén",
+    "Otra",
+  ],
+  "Robledo": [
+    "Cancha Robledo",
+    "Polideportivo Robledo",
+    "Cancha El Diamante — Robledo",
+    "Otra",
+  ],
+  "Envigado": [
+    "Cancha Envigado Centro",
+    "Cancha El Salado — Envigado",
+    "Polideportivo Sur — Envigado",
+    "Cancha El Trianón — Envigado",
+    "Fútbol 5 San Diego",
+    "Otra",
+  ],
+  "Itagüí": [
+    "Cancha Itagüí Centro",
+    "Polideportivo Itagüí",
+    "Cancha La Finca — Itagüí",
+    "Otra",
+  ],
+  "Bello": [
+    "Cancha Bello Centro",
+    "Polideportivo Bello",
+    "Cancha Niquía — Bello",
+    "Cancha La Madera — Bello",
+    "Otra",
+  ],
+  "Aranjuez — Manrique": [
+    "Cancha Aranjuez",
+    "Polideportivo Aranjuez",
+    "Cancha Manrique",
+    "Polideportivo Manrique",
+    "Cancha La Francia — Manrique",
+    "Otra",
+  ],
+  "Buenos Aires — La Candelaria": [
+    "Cancha Buenos Aires",
+    "Cancha La Candelaria",
+    "Cancha Centro Medellín",
+    "Fútbol 5 La 33",
+    "Fútbol 5 Manila",
+    "Otra",
+  ],
+  "San Javier — Santa Cruz": [
+    "Cancha San Javier",
+    "Polideportivo San Javier",
+    "Cancha Santa Cruz",
+    "Cancha La Aurora — San Javier",
+    "Otra",
+  ],
+  "Sabaneta — Copacabana": [
+    "Cancha Sabaneta Centro",
+    "Polideportivo Sabaneta",
+    "Cancha Copacabana",
+    "Polideportivo Copacabana",
+    "Otra",
+  ],
+};
+
 // Solo Efectivo y Nequi — MercadoPago en Sprint 4
 export const MEDIOS_PAGO = ["Efectivo", "Nequi / Bancolombia / Llaves"];
 

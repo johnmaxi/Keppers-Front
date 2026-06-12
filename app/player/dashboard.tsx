@@ -9,7 +9,7 @@ const MEDIOS_PAGO_LOCAL = ["Efectivo", "Nequi"];
 import { StatusBar } from "expo-status-bar";
 import { useAppStore } from "../../store/appStore";
 import { showLocalNotification } from "../../services/notificationService";
-import { CIUDADES, CANCHAS, MEDIOS_PAGO, BASE, GKS } from "../../components/constants";
+import { CIUDADES, BARRIOS, CANCHAS_POR_BARRIO, MEDIOS_PAGO, BASE, GKS } from "../../components/constants";
 
 // ── Estilos compartidos (usados en subcomponentes) ────────────────────────────
 const shared = {
@@ -211,12 +211,13 @@ export default function PlayerDashboard() {
   const [filterCity, setFilterCity] = useState("");
   const [filterCityOpen, setFilterCityOpen] = useState(false);
   const [cityOpen,   setCityOpen]   = useState(false);
+  const [barrioOpen, setBarrioOpen] = useState(false);
   const [canchaOpen, setCanchaOpen] = useState(false);
   const [tipoOpen,   setTipoOpen]   = useState(false);
   const [pagoOpen,   setPagoOpen]   = useState(false);
 
   const [form, setForm] = useState({
-    ciudad: "", cancha: "", tipoPartido: "",
+    ciudad: "", barrio: "", cancha: "", tipoPartido: "",
     horas: 1, medioPago: "", fecha: "", hora: "", nota: "",
   });
   const up = (k: string, v: any) => {
@@ -238,7 +239,7 @@ export default function PlayerDashboard() {
   );
 
   const submitService = async () => {
-    if (!form.ciudad || !form.cancha || !form.tipoPartido || !form.medioPago || !form.fecha || !form.hora) {
+    if (!form.ciudad || !form.barrio || !form.cancha || !form.tipoPartido || !form.medioPago || !form.fecha || !form.hora) {
       Alert.alert("Error", "Completa todos los campos"); return;
     }
     // Validar que la fecha y hora sean al menos 1 hora en el futuro
@@ -258,6 +259,7 @@ export default function PlayerDashboard() {
         playerId:          currentUser!.id,
         playerName:        currentUser!.nombre,
         ciudad:            form.ciudad,
+        barrio:            form.barrio,
         cancha:            form.cancha,
         tipoPartido:       form.tipoPartido,
         horas:             form.horas,
@@ -275,7 +277,7 @@ export default function PlayerDashboard() {
         playerRatingGiven: null,
       } as any);
       Alert.alert("¡Listo!", "Solicitud publicada.");
-      setForm({ ciudad: "", cancha: "", tipoPartido: "", horas: 1, medioPago: "", fecha: "", hora: "", nota: "" });
+      setForm({ ciudad: "", barrio: "", cancha: "", tipoPartido: "", horas: 1, medioPago: "", fecha: "", hora: "", nota: "" });
       setTab("svcs");
       // Notificar a porteros disponibles en esa ciudad (se hace desde serviceService)
     } catch (e: any) {
@@ -491,8 +493,27 @@ export default function PlayerDashboard() {
               <View style={styles.dropdown}>
                 {CIUDADES.map((c) => (
                   <TouchableOpacity key={c} style={styles.dropdownItem}
-                    onPress={() => { up("ciudad", c); up("cancha", ""); setCityOpen(false); }}>
+                    onPress={() => { up("ciudad", c); up("barrio", ""); up("cancha", ""); setCityOpen(false); }}>
                     <Text style={[styles.dropdownText, form.ciudad === c && styles.dropdownActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            </View>
+
+            <Text style={styles.label}>BARRIO / ZONA</Text>
+            <View style={[styles.dropdownWrapper, {zIndex:4500,elevation:4500}]}>
+            <TouchableOpacity style={[styles.selectBtn, !form.ciudad && { opacity: 0.4 }]}
+              onPress={() => { if (!form.ciudad) return; setBarrioOpen(!barrioOpen); setCityOpen(false); setCanchaOpen(false); setTipoOpen(false); setPagoOpen(false); }}>
+              <Text style={form.barrio ? styles.selectVal : styles.selectPlaceholder}>{form.barrio || "Selecciona barrio"}</Text>
+              <Text style={styles.selectArrow}>{barrioOpen ? "▴" : "▾"}</Text>
+            </TouchableOpacity>
+            {barrioOpen && (
+              <View style={styles.dropdown}>
+                {(BARRIOS[form.ciudad] || []).map((b) => (
+                  <TouchableOpacity key={b} style={styles.dropdownItem}
+                    onPress={() => { up("barrio", b); up("cancha", ""); setBarrioOpen(false); }}>
+                    <Text style={[styles.dropdownText, form.barrio === b && styles.dropdownActive]}>{b}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -501,15 +522,15 @@ export default function PlayerDashboard() {
 
             <Text style={styles.label}>CANCHA</Text>
             <View style={[styles.dropdownWrapper, {zIndex:4000,elevation:4000}]}><TouchableOpacity style={[styles.selectBtn, !form.ciudad && { opacity: 0.4 }]}
-              onPress={() => { if (!form.ciudad) return; setCanchaOpen(!canchaOpen); setCityOpen(false); setTipoOpen(false); setPagoOpen(false); }}>
+              onPress={() => { if (!form.barrio) return; setCanchaOpen(!canchaOpen); setCityOpen(false); setBarrioOpen(false); setTipoOpen(false); setPagoOpen(false); }}>
               <Text style={form.cancha ? styles.selectVal : styles.selectPlaceholder}>{form.cancha || "Selecciona cancha"}</Text>
               <Text style={styles.selectArrow}>{canchaOpen ? "▴" : "▾"}</Text>
             </TouchableOpacity>
             {canchaOpen && (
               <View style={styles.dropdown}>
-                {(CANCHAS[form.ciudad] || []).map((c) => (
+                {(CANCHAS_POR_BARRIO[form.barrio] || []).map((c) => (
                   <TouchableOpacity key={c} style={styles.dropdownItem}
-                    onPress={() => { up("cancha", c); setCanchaOpen(false); }}>
+                    onPress={() => { up("cancha", c); setCanchaOpen(false); setBarrioOpen(false); }}>
                     <Text style={[styles.dropdownText, form.cancha === c && styles.dropdownActive]}>{c}</Text>
                   </TouchableOpacity>
                 ))}
