@@ -11,6 +11,15 @@ import { useAppStore } from "../../store/appStore";
 import { showLocalNotification } from "../../services/notificationService";
 import { CIUDADES, CANCHAS, MEDIOS_PAGO, BASE, GKS } from "../../components/constants";
 
+// ── Estilos compartidos (usados en subcomponentes) ────────────────────────────
+const shared = {
+  selectBtn:         { backgroundColor: "#16161f", borderWidth: 1.5, borderColor: "#2a2a35", borderRadius: 4, padding: 13, flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
+  selectVal:         { color: "#f0ede8", fontSize: 14 },
+  selectPlaceholder: { color: "#444", fontSize: 14 },
+  selectArrow:       { color: "#555", fontSize: 16 },
+};
+
+
 // Sin "Pichanga"
 const TIPOS_PARTIDO = ["Fútbol 5", "Fútbol 7", "Fútbol 8", "Fútbol 11", "Entrenamiento", "Torneo"];
 
@@ -21,6 +30,26 @@ const TABS = [
 ];
 
 // ── Mini calendario ───────────────────────────────────────────────────────────
+
+const calS = StyleSheet.create({
+  overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,.7)", justifyContent: "center", alignItems: "center" },
+  box:           { backgroundColor: "#13131c", borderRadius: 12, padding: 16, width: 300, borderWidth: 1, borderColor: "#2a2a35" },
+  header:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  navBtn:        { color: "#00ff87", fontSize: 16, paddingHorizontal: 8 },
+  monthLabel:    { color: "#f0ede8", fontWeight: "700", fontSize: 14 },
+  weekRow:       { flexDirection: "row", marginBottom: 6 },
+  weekDay:       { flex: 1, textAlign: "center", color: "#555", fontSize: 11, fontWeight: "700" },
+  grid:          { flexDirection: "row", flexWrap: "wrap" },
+  cell:          { width: "14.28%", aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 4 },
+  cellToday:     { borderWidth: 1, borderColor: "#00ff87" },
+  cellPast:      { opacity: 0.3 },
+  cellSelected:  { backgroundColor: "#00ff87" },
+  cellText:      { color: "#f0ede8", fontSize: 12 },
+  cellTextPast:  { color: "#444" },
+  cellTextToday: { color: "#00ff87" },
+});
+
+
 function CalendarPicker({ value, onChange }: { value: string; onChange: (d: string) => void }) {
   const today = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
@@ -59,11 +88,11 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (d: stri
 
   return (
     <>
-      <TouchableOpacity style={styles.selectBtn} onPress={() => setOpen(true)}>
-        <Text style={value ? styles.selectVal : styles.selectPlaceholder}>
+      <TouchableOpacity style={shared.selectBtn} onPress={() => setOpen(true)}>
+        <Text style={value ? shared.selectVal : shared.selectPlaceholder}>
           {value || "Selecciona fecha"}
         </Text>
-        <Text style={styles.selectArrow}>📅</Text>
+        <Text style={shared.selectArrow}>📅</Text>
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade">
@@ -104,6 +133,19 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (d: stri
 }
 
 // ── Selector de hora ──────────────────────────────────────────────────────────
+const tpS = StyleSheet.create({
+  overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,.7)", justifyContent: "center", alignItems: "center" },
+  box:           { backgroundColor: "#13131c", borderRadius: 12, padding: 20, width: 240, borderWidth: 1, borderColor: "#2a2a35" },
+  title:         { color: "#f0ede8", fontWeight: "700", fontSize: 15, marginBottom: 14, textAlign: "center" },
+  cols:          { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  col:           { maxHeight: 200, width: 70 },
+  colon:         { color: "#00ff87", fontSize: 28, fontWeight: "800", marginHorizontal: 8 },
+  cell:          { paddingVertical: 10, alignItems: "center", borderRadius: 6, marginBottom: 2 },
+  cellActive:    { backgroundColor: "#00ff87" },
+  cellText:      { color: "#888", fontSize: 18, fontWeight: "600" },
+  cellTextActive:{ color: "#0a0a0f", fontWeight: "800" },
+});
+
 function TimePicker({ value, onChange }: { value: string; onChange: (t: string) => void }) {
   const [open, setOpen] = useState(false);
   const hours   = Array.from({ length: 24 }, (_, i) => i);
@@ -113,11 +155,11 @@ function TimePicker({ value, onChange }: { value: string; onChange: (t: string) 
 
   return (
     <>
-      <TouchableOpacity style={styles.selectBtn} onPress={() => setOpen(!open)}>
-        <Text style={value ? styles.selectVal : styles.selectPlaceholder}>
+      <TouchableOpacity style={shared.selectBtn} onPress={() => setOpen(!open)}>
+        <Text style={value ? shared.selectVal : shared.selectPlaceholder}>
           {value || "Selecciona hora"}
         </Text>
-        <Text style={styles.selectArrow}>🕐</Text>
+        <Text style={shared.selectArrow}>🕐</Text>
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={tpS.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
@@ -160,18 +202,6 @@ function TimePicker({ value, onChange }: { value: string; onChange: (t: string) 
   );
 }
 
-const tpS = StyleSheet.create({
-  overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,.7)", justifyContent: "center", alignItems: "center" },
-  box:           { backgroundColor: "#13131c", borderRadius: 12, padding: 20, width: 240, borderWidth: 1, borderColor: "#2a2a35" },
-  title:         { color: "#f0ede8", fontWeight: "700", fontSize: 15, marginBottom: 14, textAlign: "center" },
-  cols:          { flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  col:           { maxHeight: 200, width: 70 },
-  colon:         { color: "#00ff87", fontSize: 28, fontWeight: "800", marginHorizontal: 8 },
-  cell:          { paddingVertical: 10, alignItems: "center", borderRadius: 6, marginBottom: 2 },
-  cellActive:    { backgroundColor: "#00ff87" },
-  cellText:      { color: "#888", fontSize: 18, fontWeight: "600" },
-  cellTextActive:{ color: "#0a0a0f", fontWeight: "800" },
-});
 
 // ── Dashboard principal ───────────────────────────────────────────────────────
 export default function PlayerDashboard() {
@@ -247,6 +277,7 @@ export default function PlayerDashboard() {
       Alert.alert("¡Listo!", "Solicitud publicada.");
       setForm({ ciudad: "", cancha: "", tipoPartido: "", horas: 1, medioPago: "", fecha: "", hora: "", nota: "" });
       setTab("svcs");
+      // Notificar a porteros disponibles en esa ciudad (se hace desde serviceService)
     } catch (e: any) {
       Alert.alert("Error", e?.message || "No se pudo publicar");
     }
@@ -451,7 +482,7 @@ export default function PlayerDashboard() {
             <Text style={styles.sectionSub}>Los porteros verán tu solicitud y podrán hacer ofertas</Text>
 
             <Text style={styles.label}>CIUDAD</Text>
-            <TouchableOpacity style={styles.selectBtn}
+            <View style={styles.dropdownWrapper}><TouchableOpacity style={styles.selectBtn}
               onPress={() => { setCityOpen(!cityOpen); setCanchaOpen(false); setTipoOpen(false); setPagoOpen(false); }}>
               <Text style={form.ciudad ? styles.selectVal : styles.selectPlaceholder}>{form.ciudad || "Selecciona ciudad"}</Text>
               <Text style={styles.selectArrow}>{cityOpen ? "▴" : "▾"}</Text>
@@ -466,9 +497,10 @@ export default function PlayerDashboard() {
                 ))}
               </View>
             )}
+            </View>
 
             <Text style={styles.label}>CANCHA</Text>
-            <TouchableOpacity style={[styles.selectBtn, !form.ciudad && { opacity: 0.4 }]}
+            <View style={[styles.dropdownWrapper, {zIndex:4000,elevation:4000}]}><TouchableOpacity style={[styles.selectBtn, !form.ciudad && { opacity: 0.4 }]}
               onPress={() => { if (!form.ciudad) return; setCanchaOpen(!canchaOpen); setCityOpen(false); setTipoOpen(false); setPagoOpen(false); }}>
               <Text style={form.cancha ? styles.selectVal : styles.selectPlaceholder}>{form.cancha || "Selecciona cancha"}</Text>
               <Text style={styles.selectArrow}>{canchaOpen ? "▴" : "▾"}</Text>
@@ -483,9 +515,10 @@ export default function PlayerDashboard() {
                 ))}
               </View>
             )}
+            </View>
 
             <Text style={styles.label}>TIPO DE PARTIDO</Text>
-            <TouchableOpacity style={styles.selectBtn}
+            <View style={[styles.dropdownWrapper, {zIndex:3000,elevation:3000}]}><TouchableOpacity style={styles.selectBtn}
               onPress={() => { setTipoOpen(!tipoOpen); setCityOpen(false); setCanchaOpen(false); setPagoOpen(false); }}>
               <Text style={form.tipoPartido ? styles.selectVal : styles.selectPlaceholder}>{form.tipoPartido || "Selecciona formato"}</Text>
               <Text style={styles.selectArrow}>{tipoOpen ? "▴" : "▾"}</Text>
@@ -502,6 +535,7 @@ export default function PlayerDashboard() {
                 ))}
               </View>
             )}
+            </View>
 
             <Text style={styles.label}>DURACIÓN</Text>
             <View style={styles.horasRow}>
@@ -515,7 +549,7 @@ export default function PlayerDashboard() {
             </View>
 
             <Text style={styles.label}>MEDIO DE PAGO</Text>
-            <TouchableOpacity style={styles.selectBtn}
+            <View style={[styles.dropdownWrapper, {zIndex:2000,elevation:2000}]}><TouchableOpacity style={styles.selectBtn}
               onPress={() => { setPagoOpen(!pagoOpen); setCityOpen(false); setCanchaOpen(false); setTipoOpen(false); }}>
               <Text style={form.medioPago ? styles.selectVal : styles.selectPlaceholder}>{form.medioPago || "Selecciona medio"}</Text>
               <Text style={styles.selectArrow}>{pagoOpen ? "▴" : "▾"}</Text>
@@ -532,6 +566,7 @@ export default function PlayerDashboard() {
                 ))}
               </View>
             )}
+            </View>
 
             <Text style={styles.label}>FECHA</Text>
             <CalendarPicker value={form.fecha} onChange={(d) => up("fecha", d)} />
@@ -669,24 +704,6 @@ export default function PlayerDashboard() {
   );
 }
 
-const calS = StyleSheet.create({
-  overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,.7)", justifyContent: "center", alignItems: "center" },
-  box:           { backgroundColor: "#13131c", borderRadius: 12, padding: 16, width: 300, borderWidth: 1, borderColor: "#2a2a35" },
-  header:        { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  navBtn:        { color: "#00ff87", fontSize: 16, paddingHorizontal: 8 },
-  monthLabel:    { color: "#f0ede8", fontWeight: "700", fontSize: 14 },
-  weekRow:       { flexDirection: "row", marginBottom: 6 },
-  weekDay:       { flex: 1, textAlign: "center", color: "#555", fontSize: 11, fontWeight: "700" },
-  grid:          { flexDirection: "row", flexWrap: "wrap" },
-  cell:          { width: "14.28%", aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 4 },
-  cellToday:     { borderWidth: 1, borderColor: "#00ff87" },
-  cellPast:      { opacity: 0.3 },
-  cellSelected:  { backgroundColor: "#00ff87" },
-  cellText:      { color: "#f0ede8", fontSize: 12 },
-  cellTextPast:  { color: "#444" },
-  cellTextToday: { color: "#00ff87" },
-});
-
 const styles = StyleSheet.create({
   root:              { flex: 1, backgroundColor: "#0a0a0f" },
   header:            { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#1e1e2a" },
@@ -730,11 +747,12 @@ const styles = StyleSheet.create({
   label:             { fontSize: 10, fontWeight: "700", letterSpacing: 1.5, color: "#777", marginBottom: 6, marginTop: 14 },
   input:             { backgroundColor: "#16161f", borderWidth: 1.5, borderColor: "#2a2a35", color: "#f0ede8", padding: 12, borderRadius: 4, fontSize: 14 },
   selectBtn:         { backgroundColor: "#16161f", borderWidth: 1.5, borderColor: "#2a2a35", borderRadius: 4, padding: 13, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dropdownWrapper:   { position: "relative" as const, zIndex: 9999, elevation: 9999, marginBottom: 0 },
   selectVal:         { color: "#f0ede8", fontSize: 14 },
   selectPlaceholder: { color: "#444", fontSize: 14 },
   selectArrow:       { color: "#555", fontSize: 16 },
-  dropdown:          { backgroundColor: "#16161f", borderWidth: 1.5, borderColor: "#00ff87", borderRadius: 4, marginTop: 4, maxHeight: 200 },
-  dropdownItem:      { padding: 13, borderBottomWidth: 1, borderBottomColor: "#1e1e2a" },
+  dropdown:          { backgroundColor: "#16161f", borderWidth: 1.5, borderColor: "#00ff87", borderRadius: 4, marginTop: 4, maxHeight: 200, zIndex: 9999, elevation: 9999, position: "absolute" as const, left: 0, right: 0, top: 50 },
+  dropdownItem:      { padding: 13, borderBottomWidth: 1, borderBottomColor: "#1e1e2a", backgroundColor: "#16161f" },
   dropdownText:      { color: "#f0ede8", fontSize: 14 },
   dropdownActive:    { color: "#00ff87", fontWeight: "700" },
   horasRow:          { flexDirection: "row", gap: 8, marginTop: 2 },
