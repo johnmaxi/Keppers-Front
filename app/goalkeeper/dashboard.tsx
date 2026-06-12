@@ -28,7 +28,7 @@ export default function GoalkeeperDashboard() {
   const [forms, setForms]       = useState<Record<string, any>>({});
 
   const gf = (id: string) =>
-    forms[id] || { msg: "", tarifa: String(BASE), horas: 2, mode: "offer" };
+    forms[id] || { msg: "", tarifa: String(BASE), horas: 1, mode: "offer" };
   const sf = (id: string, patch: any) =>
     setForms((f) => ({ ...f, [id]: { ...gf(id), ...patch } }));
 
