@@ -3,7 +3,7 @@
     "name": "Keepers",
     "slug": "keepers-app",
     "scheme": "keepers",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +14,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.keepers.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
