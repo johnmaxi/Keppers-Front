@@ -3,7 +3,7 @@
     "name": "Keepers",
     "slug": "keepers-app",
     "scheme": "keepers",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +14,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.keepers.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
@@ -35,8 +35,7 @@
         "googleMapsApiKey": "AIzaSyCWsJb3LrQUJU2FfHxBkjCQ1jmaj56ig-s"
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Keepers necesita tu ubicación para el seguimiento del portero.",
-        "NSLocationAlwaysUsageDescription": "Keepers necesita tu ubicación para el seguimiento del portero."
+        "NSLocationWhenInUseUsageDescription": "Keepers necesita tu ubicación para el seguimiento del portero."
       }
     },
     "web": {
@@ -71,7 +70,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Keepers necesita tu ubicación para el seguimiento en tiempo real del portero."
+          "locationWhenInUsePermission": "Keepers necesita tu ubicación para el seguimiento en tiempo real del portero."
         }
       ]
     ],
